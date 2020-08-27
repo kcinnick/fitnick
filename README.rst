@@ -1,0 +1,30 @@
+=======
+fitnick
+=======
+
+
+.. image:: https://img.shields.io/travis/kcinnick/fitnick.svg
+        :target: https://travis-ci.com/kcinnick/fitnick
+
+.. image:: https://readthedocs.org/projects/fitnick/badge/?version=latest
+        :target: https://fitnick.readthedocs.io/en/latest/?badge=latest
+        :alt: Documentation Status
+
+
+
+
+Hacking around on the Python implementation of the Fitbit API with my own Fitbit.
+
+I created this for my own curiosity, but if you'd like to use it, you'll have to set the environment variables for `FITBIT_CONSUMER_KEY`, `FITBIT_CONSUMER_SECRET`, `FITBIT_ACCESS_KEY` and `FITBIT_REFRESH_TOKEN` using this tutorial: https://dev.fitbit.com/apps/oauthinteractivetutorial?clientEncodedId=&clientSecret=&redirectUri=https://dev.fitbit.com/&applicationType=SERVER.
+
+* Free software: MIT license
+* Documentation: https://fitnick.readthedocs.io.
+
+
+Credits
+-------
+
+This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
+
+.. _Cookiecutter: https://github.com/audreyr/cookiecutter
+.. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
