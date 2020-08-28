@@ -36,28 +36,30 @@ def get_heart_rate_time_series_period(authorized_client, db_connection, date='20
     :param period: The range for which data will be returned. Options are 1d, 7d, 30d, 1w, 1m.
     :return:
     """
-    if period == '1d':
-        data = authorized_client.time_series(resource='activities/heart', base_date=date, period=period)
-        heart_series_data = data['activities-heart'][0]['value']['heartRateZones']
-        heart_series_data = {i['name']: (i['minutes'], i['caloriesOut']) for i in heart_series_data}
-        with db_connection.connect() as connection:
-            for heart_range_type, details in heart_series_data.items():
-                sql_string = f"insert into heart.daily(type, minutes, date, calories) values ('{heart_range_type}', {details[0]}, '{date}', {details[1]})"
-                try:
-                    connection.execute(sql_string)
-                except IntegrityError: # data already exists for this date.
-                    print('Data already exists in database for this date. Exiting.\n')
-                    return
-    else:
-        raise NotImplementedError
-
-    return
+    date_dict = {
+        '1d': 'daily',
+        '1m': 'monthly',
+        '1w': 'weekly',
+        '7d': 'weekly',
+        '30d': 'monthly'
+    }
+    data = authorized_client.time_series(resource='activities/heart', base_date=date, period=period)
+    heart_series_data = data['activities-heart'][0]['value']['heartRateZones']
+    heart_series_data = {i['name']: (i['minutes'], i['caloriesOut']) for i in heart_series_data}
+    with db_connection.connect() as connection:
+        for heart_range_type, details in heart_series_data.items():
+            sql_string = f"insert into heart.{date_dict[period]}(type, minutes, date, calories) values ('{heart_range_type}', {details[0]}, '{date}', {details[1]})"
+            try:
+                connection.execute(sql_string)
+            except IntegrityError: # data already exists for this date.
+                print('Data already exists in database for this date. Exiting.\n')
+                return
 
 
 def main():
     authorized_client = get_authed_client()
     db_connection = create_engine(f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}:5432/fitbit")
-    get_heart_rate_time_series_period(authorized_client, db_connection)
+    get_heart_rate_time_series_period(authorized_client, db_connection, period='1d')
 
 
 if __name__ == '__main__':
