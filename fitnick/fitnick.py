@@ -51,7 +51,7 @@ def get_heart_rate_time_series_period(authorized_client, db_connection, date='20
 
 def main():
     authorized_client = get_authed_client()
-    db_connection = create_engine(f"postgres+psycopg2://{os.environ['postgres_username']}:{os.environ['postgres_password']}@{os.environ['postgress_ip']}:5432/fitbit")
+    db_connection = create_engine(f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}:5432/fitbit")
     get_heart_rate_time_series_period(authorized_client, db_connection)
 
 
