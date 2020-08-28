@@ -2,6 +2,7 @@
 import fitbit
 import os
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 
 
 def get_authed_client() -> fitbit.Fitbit:
@@ -42,7 +43,11 @@ def get_heart_rate_time_series_period(authorized_client, db_connection, date='20
         with db_connection.connect() as connection:
             for heart_range_type, details in heart_series_data.items():
                 sql_string = f"insert into heart.daily(type, minutes, date, calories) values ('{heart_range_type}', {details[0]}, '{date}', {details[1]})"
-                connection.execute(sql_string)
+                try:
+                    connection.execute(sql_string)
+                except IntegrityError: # data already exists for this date.
+                    print('Data already exists in database for this date. Exiting.\n')
+                    return
     else:
         raise NotImplementedError
 
