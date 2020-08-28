@@ -7,7 +7,8 @@ CREATE TABLE heart.daily
     type character varying COLLATE pg_catalog."default",
     minutes numeric(10,5),
     date date NOT NULL,
-    calories numeric(10,5)
+    calories numeric(10,5),
+	UNIQUE (type, minutes, date, calories)
 )
 
 TABLESPACE pg_default;
