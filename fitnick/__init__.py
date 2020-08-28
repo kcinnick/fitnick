@@ -1,5 +1,4 @@
 """Top-level package for fitnick."""
-from fitnick.fitnick import *
 
 __author__ = """Nick Tucker"""
 __email__ = 'nicktucker4@gmail.com'
