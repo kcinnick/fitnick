@@ -1,6 +1,8 @@
 """Main module."""
-import fitbit
+from datetime import datetime
 import os
+
+import fitbit
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 
@@ -28,6 +30,18 @@ def get_authed_client() -> fitbit.Fitbit:
         exit()
 
 
+def check_date(date):
+    """
+    Prevents a user from entering incomplete data for the current day.
+    :param date: str
+    :return: bool
+    """
+    if date == datetime.today().strftime('%Y-%m-%d'):
+        print('Can\'t insert data for today - it\'s not over yet! Exiting.\n')
+        return False
+    return True
+
+
 def get_heart_rate_time_series_period(authorized_client, db_connection, date='2020-08-26', period='1d'):
     """
     The first of the two time-series based queries documented here:
@@ -48,6 +62,8 @@ def get_heart_rate_time_series_period(authorized_client, db_connection, date='20
     heart_series_data = {i['name']: (i['minutes'], i['caloriesOut']) for i in heart_series_data}
     with db_connection.connect() as connection:
         for heart_range_type, details in heart_series_data.items():
+            if not check_date(date):
+                return
             sql_string = f"insert into heart.{date_dict[period]}(type, minutes, date, calories) values ('{heart_range_type}', {details[0]}, '{date}', {details[1]})"
             try:
                 connection.execute(sql_string)
@@ -59,7 +75,7 @@ def get_heart_rate_time_series_period(authorized_client, db_connection, date='20
 def main():
     authorized_client = get_authed_client()
     db_connection = create_engine(f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}:5432/fitbit")
-    get_heart_rate_time_series_period(authorized_client, db_connection, period='1d')
+    get_heart_rate_time_series_period(authorized_client, db_connection, date='2020-08-29', period='1d')
 
 
 if __name__ == '__main__':
