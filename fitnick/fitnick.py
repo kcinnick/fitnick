@@ -7,27 +7,45 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 
 
-def get_authed_client() -> fitbit.Fitbit:
+def get_authorized_client() -> fitbit.Fitbit:
     """
     Using the defined environment variables for the various Fitbit tokens,
     creates an authorized Fitbit client for a user's credentials.
     :return: Authorized Fitbit client
     """
-    authed_client = fitbit.Fitbit(
+    authorized_client = fitbit.Fitbit(
         os.environ['FITBIT_CONSUMER_KEY'],
         os.environ['FITBIT_CONSUMER_SECRET'],
         os.environ['FITBIT_ACCESS_KEY'],
         os.environ['FITBIT_REFRESH_TOKEN']
     )
 
-    if authed_client.sleep:
+    if authorized_client.sleep:
         #  If the client isn't authorized, this method will return NoneType
-        return authed_client
+        return authorized_client
     else:
         print(
             'Authorization failed - check your refresh token, and ensure'
             + 'your environment variables are set correctly.')
         exit()
+
+
+def refresh_authorized_client():
+    import requests
+    with requests.session() as session:
+        data = {'grant_type': 'refresh_token',
+                'refresh_token': os.environ['FITBIT_REFRESH_TOKEN']}
+        r = session.post(
+            url='https://api.fitbit.com/oauth2/token',
+            data=data,
+            headers={
+                'clientId': '22BWR3',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': f"Basic {os.environ['FITBIT_AUTH_HEADER']}"}
+        )
+        os.environ['FITBIT_ACCESS_KEY'] = r.json()['access_token']
+        os.environ['FITBIT_REFRESH_TOKEN'] = r.json()['refresh_token']
+    return
 
 
 def check_date(date):
@@ -74,9 +92,9 @@ def get_heart_rate_time_series_period(authorized_client, db_connection, date='20
 
 
 def main():
-    authorized_client = get_authed_client()
+    authorized_client = get_authorized_client()
     db_connection = create_engine(f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}:5432/fitbit")
-    get_heart_rate_time_series_period(authorized_client, db_connection, date='2020-08-29', period='1d')
+    get_heart_rate_time_series_period(authorized_client, db_connection, date='2020-08-27', period='1d')
 
 
 if __name__ == '__main__':
