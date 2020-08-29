@@ -65,6 +65,8 @@ def get_heart_rate_time_series_period(authorized_client, db_connection, date='20
     """
     The first of the two time-series based queries documented here:
     https://dev.fitbit.com/build/reference/web-api/heart-rate/#get-heart-rate-time-series
+    :param authorized_client: An authorized Fitbit client, like the one returned by get_authorized_client.
+    :param db_connection: PostgreSQL database connection to /fitbit or /fitbit-test.
     :param date: The end date of the period specified in the format yyyy-MM-dd or today.
     :param period: The range for which data will be returned. Options are 1d, 7d, 30d, 1w, 1m.
     :return:
@@ -93,10 +95,12 @@ def get_heart_rate_time_series_period(authorized_client, db_connection, date='20
 
 def get_heart_rate_time_series_daterange(authorized_client, db_connection, base_date, end_date):
     """
-    The first of the two time-series based queries documented here:
+    The second of the two time-series based queries documented here:
     https://dev.fitbit.com/build/reference/web-api/heart-rate/#get-heart-rate-time-series
-    :param date: The end date of the period specified in the format yyyy-MM-dd or today.
-    :param period: The range for which data will be returned. Options are 1d, 7d, 30d, 1w, 1m.
+    :param authorized_client: An authorized Fitbit client, like the one returned by get_authorized_client.
+    :param db_connection: PostgreSQL database connection to /fitbit or /fitbit-test.
+    :param base_date: The start date of the time-period. Acceptable format is MM/DD/YYYY.
+    :param end_date: The start date of the time-period. Acceptable format is MM/DD/YYYY.
     :return:
     """
     data = authorized_client.time_series(resource='activities/heart', base_date=base_date, end_date=end_date)
