@@ -33,6 +33,7 @@ def get_authed_client() -> fitbit.Fitbit:
 def check_date(date):
     """
     Prevents a user from entering incomplete data for the current day.
+    Returns false if the provided date str == today's date str.
     :param date: str
     :return: bool
     """
