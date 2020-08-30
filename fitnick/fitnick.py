@@ -93,40 +93,13 @@ def get_heart_rate_time_series_period(authorized_client, db_connection, date='20
                 return
 
 
-def get_heart_rate_time_series_daterange(authorized_client, db_connection, base_date, end_date):
-    """
-    The second of the two time-series based queries documented here:
-    https://dev.fitbit.com/build/reference/web-api/heart-rate/#get-heart-rate-time-series
-    :param authorized_client: An authorized Fitbit client, like the one returned by get_authorized_client.
-    :param db_connection: PostgreSQL database connection to /fitbit or /fitbit-test.
-    :param base_date: The start date of the time-period. Acceptable format is MM/DD/YYYY.
-    :param end_date: The start date of the time-period. Acceptable format is MM/DD/YYYY.
-    :return:
-    """
-    data = authorized_client.time_series(resource='activities/heart', base_date=base_date, end_date=end_date)
-    heart_series_data = data['activities-heart'][0]['value']['heartRateZones']
-    heart_series_data = {i['name']: (i['minutes'], i['caloriesOut']) for i in heart_series_data}
-    with db_connection.connect() as connection:
-        for heart_range_type, details in heart_series_data.items():
-            if not check_date(end_date):
-                return
-            sql_string = "insert into heart.daterange (base_date, end_date, type, minutes, calories) values "
-            sql_string += f"('{base_date}', '{end_date}', '{heart_range_type}', {details[0]}, {details[1]})"
-            try:
-                connection.execute(sql_string)
-            except IntegrityError: # data already exists for this date.
-                print('Data already exists in database for this date. Exiting.\n')
-                return
-
-
 def get_heart_rate_time_series(authorized_client, db_connection, config):
     """
-    The first of the two time-series based queries documented here:
+    The two time-series based queries supported are documented here:
     https://dev.fitbit.com/build/reference/web-api/heart-rate/#get-heart-rate-time-series
     :param authorized_client: An authorized Fitbit client, like the one returned by get_authorized_client.
     :param db_connection: PostgreSQL database connection to /fitbit or /fitbit-test.
-    :param date: The end date of the period specified in the format yyyy-MM-dd or today.
-    :param period: The range for which data will be returned. Options are 1d, 7d, 30d, 1w, 1m.
+    :param config: dict containing the settings that determine what kind of time-series request gets made.
     :return:
     """
     date_dict = {
@@ -168,8 +141,6 @@ def get_heart_rate_time_series(authorized_client, db_connection, config):
                     return
             else:
                 assert NotImplementedError('This method is not yet implemented for period time.')
-            # sql_string = f"insert into heart.{config['table']} (base_date, end_date, type, minutes, calories) values "
-            # sql_string += f"('{base_date}', '{end_date}', '{heart_range_type}', {details[0]}, {details[1]})"
     return
 
 
@@ -186,7 +157,7 @@ def build_sql_command(config, type, data):
 
 def main():
     authorized_client = get_authorized_client()
-    db_connection = create_engine(f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}:5432/fitbit")
+    db_connection = create_engine(f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}:5432/fitbit_test")
     config = {'database': 'heart',
               'table': 'daterange',
               'base_date': '2020-08-20',
