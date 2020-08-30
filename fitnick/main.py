@@ -6,8 +6,8 @@ import fitbit
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 
-from .base import build_sql_command, get_authorized_client, check_date
-from .heart_rate import get_heart_rate_time_series
+from fitnick.base.base import get_authorized_client
+from fitnick.heart_rate.heart_rate import get_heart_rate_time_series
 
 
 def main():
