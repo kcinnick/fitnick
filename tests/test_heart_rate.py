@@ -1,19 +1,17 @@
 #!/usr/bin/env python
 
-"""Tests for `fitnick` package."""
+"""Tests for the `heart_rate` functions in fitnick."""
 
 import datetime
 from decimal import Decimal
 
-import pytest
 import os
 
-import fitbit
 from sqlalchemy import create_engine
 
 from fitnick import main
 from fitnick.heart_rate.heart_rate import get_heart_rate_time_series
-from fitnick.base.base import check_date
+
 
 HEART_DATERANGE_EXPECTED_ROWS = [
             ('Out of Range', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('1299.00000'), Decimal('2164.34791')),
@@ -40,10 +38,6 @@ def purge(db_connection, delete_sql_string, select_sql_string):
 
     rows = [i for i in db_connection.execute(select_sql_string)]
     assert len(rows) == 0
-
-
-def test_get_authorized_client():
-    assert type(main.get_authorized_client()) == fitbit.Fitbit
 
 
 def test_get_heart_rate_time_series_period(date='2020-08-26'):
@@ -101,10 +95,3 @@ def test_get_heart_rate_time_series_daterange(base_date='2020-08-20', end_date='
         # checking that they were re-added
         rows = [i for i in connection.execute(select_sql_string)]
         assert sorted(rows) == sorted(HEART_DATERANGE_EXPECTED_ROWS)
-
-
-def test_check_date():
-    test_date_xpass = '08-26-2020'
-    assert check_date(test_date_xpass)
-    test_date_xfail = datetime.datetime.today().strftime('%Y-%m-%d')
-    assert not check_date(test_date_xfail)

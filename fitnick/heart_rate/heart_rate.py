@@ -36,17 +36,25 @@ def get_heart_rate_time_series(authorized_client, db_connection, config):
     with db_connection.connect() as connection:
         for heart_range_type, details in heart_series_data.items():
             if 'end_date' in config.keys():
-                sql_string = build_sql_command(config, type='heart_rate_time_series_daterange', data=[heart_range_type, details])
+                sql_string = build_sql_command(
+                    config,
+                    type='heart_rate_time_series_daterange',
+                    data=[heart_range_type, details]
+                )
                 try:
                     connection.execute(sql_string)
-                except IntegrityError: # data already exists for this date.
+                except IntegrityError:  # data already exists for this date.
                     print('Data already exists in database for this date. Exiting.\n')
                     return
             else:
-                sql_string = build_sql_command(config, type='heart_rate_time_series_period', data=[heart_range_type, details])
+                sql_string = build_sql_command(
+                    config,
+                    type='heart_rate_time_series_period',
+                    data=[heart_range_type, details]
+                )
                 try:
                     connection.execute(sql_string)
-                except IntegrityError: # data already exists for this date.
+                except IntegrityError:  # data already exists for this date.
                     print('Data already exists in database for this date. Exiting.\n')
                     return
     return
