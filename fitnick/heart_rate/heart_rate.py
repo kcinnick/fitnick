@@ -1,6 +1,6 @@
 from sqlalchemy.exc import IntegrityError
 
-from .base import build_sql_command, get_authorized_client
+from fitnick.base.base import build_sql_command, get_authorized_client
 
 
 def get_heart_rate_time_series(authorized_client, db_connection, config):
