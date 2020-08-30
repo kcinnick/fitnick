@@ -151,7 +151,7 @@ def build_sql_command(config, type, data):
     if type == 'heart_rate_time_series_daterange':
         sql_string += f"{config['base_date'], config['end_date'], data[0], data[1][0], data[1][1]}"
     else:
-        raise Exception('Unsupported type: ', type)
+        raise NotImplementedError('Unsupported type: ', type)
     return sql_string
 
 
