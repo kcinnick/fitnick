@@ -45,19 +45,26 @@ def test_get_authorized_client():
 
 
 def test_get_heart_rate_time_series_period(date='2020-08-26'):
-    db_connection = create_engine(f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}:5432/fitbit_test")
+    db_connection = create_engine(
+        f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@" +
+        f"{os.environ['POSTGRES_IP']}:5432/fitbit_test"
+    )
     authorized_client = fitnick.get_authorized_client()
 
-    delete_sql_string = f"delete from heart.daily where date={date}"
-    select_sql_string = f"select * from heart.daily where date={date}"
+    delete_sql_string = f"delete from heart.daily where date='{date}'"
+    select_sql_string = f"select * from heart.daily where date='{date}'"
 
     purge(db_connection, delete_sql_string, select_sql_string)
 
-    fitnick.get_heart_rate_time_series_period(
+    fitnick.get_heart_rate_time_series(
         authorized_client,
         db_connection=db_connection,
-        date={date},
-        period='1d'
+        config={'database': 'heart',
+                'table': 'daily',
+                'base_date': '2020-08-26',
+                'period': '1d',
+                'columns': ['type', 'minutes', 'date', 'calories']
+                }
     )
 
     with db_connection.connect() as connection:
