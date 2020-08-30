@@ -102,24 +102,17 @@ def get_heart_rate_time_series(authorized_client, db_connection, config):
     :param config: dict containing the settings that determine what kind of time-series request gets made.
     :return:
     """
-    date_dict = {
-        '1d': 'daily',
-        '1m': 'monthly',
-        '1w': 'weekly',
-        '7d': 'weekly',
-        '30d': 'monthly'
-    }
     if 'end_date' in config.keys():
         data = authorized_client.time_series(
             resource='activities/heart',
             base_date=config['base_date'],
             end_date=config['end_date']
         )
-    else:
+    else:  # we're assuming that if it's not a daterange search, it's a period search.
         data = authorized_client.time_series(
             resource='activities/heart',
             base_date=config['base_date'],
-            period=date_dict[config['period']]
+            period=config['period']
         )
 
     try:
@@ -140,7 +133,12 @@ def get_heart_rate_time_series(authorized_client, db_connection, config):
                     print('Data already exists in database for this date. Exiting.\n')
                     return
             else:
-                assert NotImplementedError('This method is not yet implemented for period time.')
+                sql_string = build_sql_command(config, type='heart_rate_time_series_period', data=[heart_range_type, details])
+                try:
+                    connection.execute(sql_string)
+                except IntegrityError: # data already exists for this date.
+                    print('Data already exists in database for this date. Exiting.\n')
+                    return
     return
 
 
@@ -150,6 +148,8 @@ def build_sql_command(config, type, data):
     sql_string += f") values "
     if type == 'heart_rate_time_series_daterange':
         sql_string += f"{config['base_date'], config['end_date'], data[0], data[1][0], data[1][1]}"
+    elif type == 'heart_rate_time_series_period':
+        sql_string += f"{data[0], data[1][0], config['base_date'], data[1][1]}"
     else:
         raise NotImplementedError('Unsupported type: ', type)
     return sql_string
@@ -159,14 +159,13 @@ def main():
     authorized_client = get_authorized_client()
     db_connection = create_engine(f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}:5432/fitbit_test")
     config = {'database': 'heart',
-              'table': 'daterange',
-              'base_date': '2020-08-20',
-              'end_date': '2020-08-27',
-              'columns': ['base_date', 'end_date', 'type', 'minutes', 'calories'],
+              'table': 'daily',
+              'base_date': '2020-08-26',
+              'period': '1d',
+              'columns': ['type', 'minutes', 'date', 'calories']
               }
-    # get_heart_rate_time_series_period(authorized_client, db_connection, date='2020-08-26', period='1d')
-    # get_heart_rate_time_series_daterange(authorized_client, db_connection, base_date='2020-08-20', end_date='2020-08-27')
     get_heart_rate_time_series(authorized_client, db_connection, config)
+    #  get_heart_rate_time_series(authorized_client, db_connection, config)
 
 
 if __name__ == '__main__':
