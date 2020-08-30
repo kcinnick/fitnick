@@ -76,7 +76,10 @@ def test_get_heart_rate_time_series_period(date='2020-08-26'):
 
 
 def test_get_heart_rate_time_series_daterange(base_date='2020-08-20', end_date='2020-08-27'):
-    db_connection = create_engine(f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}:5432/fitbit_test")
+    db_connection = create_engine(
+        f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@"
+        f"{os.environ['POSTGRES_IP']}:5432/fitbit_test"
+    )
     authorized_client = main.get_authorized_client()
 
     delete_sql_string = f"delete from heart.daterange where base_date='{base_date}' and end_date='{end_date}'"
