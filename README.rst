@@ -6,9 +6,6 @@ fitnick
         :target: https://fitnick.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
 
-.. image:: https://img.shields.io/travis/kcinnick/fitnick.svg
-        :target: https://travis-ci.com/kcinnick/fitnick
-
 
 Hacking around on the Python implementation of the Fitbit API with my own Fitbit.
 
