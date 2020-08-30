@@ -93,39 +93,81 @@ def get_heart_rate_time_series_period(authorized_client, db_connection, date='20
                 return
 
 
-def get_heart_rate_time_series_daterange(authorized_client, db_connection, base_date, end_date):
+def get_heart_rate_time_series(authorized_client, db_connection, config):
     """
-    The second of the two time-series based queries documented here:
+    The two time-series based queries supported are documented here:
     https://dev.fitbit.com/build/reference/web-api/heart-rate/#get-heart-rate-time-series
     :param authorized_client: An authorized Fitbit client, like the one returned by get_authorized_client.
     :param db_connection: PostgreSQL database connection to /fitbit or /fitbit-test.
-    :param base_date: The start date of the time-period. Acceptable format is MM/DD/YYYY.
-    :param end_date: The start date of the time-period. Acceptable format is MM/DD/YYYY.
+    :param config: dict containing the settings that determine what kind of time-series request gets made.
     :return:
     """
-    data = authorized_client.time_series(resource='activities/heart', base_date=base_date, end_date=end_date)
+    if 'end_date' in config.keys():
+        data = authorized_client.time_series(
+            resource='activities/heart',
+            base_date=config['base_date'],
+            end_date=config['end_date']
+        )
+    else:  # we're assuming that if it's not a daterange search, it's a period search.
+        data = authorized_client.time_series(
+            resource='activities/heart',
+            base_date=config['base_date'],
+            period=config['period']
+        )
+
+    try:
+        assert len(config['base_date'].split('-')[0]) == 4
+    except AssertionError:
+        print('Dates must be formatted as YYYY-MM-DD. Exiting.')
+        exit()
+
     heart_series_data = data['activities-heart'][0]['value']['heartRateZones']
     heart_series_data = {i['name']: (i['minutes'], i['caloriesOut']) for i in heart_series_data}
     with db_connection.connect() as connection:
         for heart_range_type, details in heart_series_data.items():
-            if not check_date(end_date):
-                return
-            sql_string = "insert into heart.daterange (base_date, end_date, type, minutes, calories) values "
-            sql_string += f"('{base_date}', '{end_date}', '{heart_range_type}', {details[0]}, {details[1]})"
-            try:
-                connection.execute(sql_string)
-            except IntegrityError: # data already exists for this date.
-                print('Data already exists in database for this date. Exiting.\n')
-                return
+            if 'end_date' in config.keys():
+                sql_string = build_sql_command(config, type='heart_rate_time_series_daterange', data=[heart_range_type, details])
+                try:
+                    connection.execute(sql_string)
+                except IntegrityError: # data already exists for this date.
+                    print('Data already exists in database for this date. Exiting.\n')
+                    return
+            else:
+                sql_string = build_sql_command(config, type='heart_rate_time_series_period', data=[heart_range_type, details])
+                try:
+                    connection.execute(sql_string)
+                except IntegrityError: # data already exists for this date.
+                    print('Data already exists in database for this date. Exiting.\n')
+                    return
+    return
+
+
+def build_sql_command(config, type, data):
+    sql_string = f"insert into {config['database']}.{config['table']} ("
+    sql_string += ', '.join(config['columns'])
+    sql_string += f") values "
+    if type == 'heart_rate_time_series_daterange':
+        sql_string += f"{config['base_date'], config['end_date'], data[0], data[1][0], data[1][1]}"
+    elif type == 'heart_rate_time_series_period':
+        sql_string += f"{data[0], data[1][0], config['base_date'], data[1][1]}"
+    else:
+        raise NotImplementedError('Unsupported type: ', type)
+    return sql_string
 
 
 def main():
     authorized_client = get_authorized_client()
-    db_connection = create_engine(f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}:5432/fitbit")
-    # get_heart_rate_time_series_period(authorized_client, db_connection, date='2020-08-26', period='1d')
-    get_heart_rate_time_series_daterange(authorized_client, db_connection, base_date='2020-08-20', end_date='2020-08-27')
-
+    db_connection = create_engine(f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}:5432/fitbit_test")
+    config = {'database': 'heart',
+              'table': 'daily',
+              'base_date': '2020-08-26',
+              'period': '1d',
+              'columns': ['type', 'minutes', 'date', 'calories']
+              }
+    get_heart_rate_time_series(authorized_client, db_connection, config)
+    #  get_heart_rate_time_series(authorized_client, db_connection, config)
 
 
 if __name__ == '__main__':
     main()
+
