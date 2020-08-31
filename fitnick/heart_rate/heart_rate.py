@@ -1,6 +1,16 @@
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import MetaData, Table, Column, VARCHAR, UniqueConstraint, Numeric, Date
 
 from fitnick.base.base import build_sql_command, get_authorized_client
+
+meta = MetaData()
+heart_daily_table = Table('heart.daily', meta,
+    Column('type', VARCHAR, primary_key=True),
+    Column('minutes', Numeric(10, 5)),
+    Column('date', Date, nullable=False),
+    Column('calories', Numeric(10, 5)),
+    UniqueConstraint('type', 'minutes', 'date', 'calories', name='daily_type_minutes_date_calories')
+)
 
 
 def get_heart_rate_time_series(authorized_client, db_connection, config):
