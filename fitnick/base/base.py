@@ -37,7 +37,7 @@ def refresh_authorized_client():
             url='https://api.fitbit.com/oauth2/token',
             data=data,
             headers={
-                'clientId': '22BWR3',
+                'clientId': os.environ['FITBIT_CONSUMER_KEY'],
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Authorization': f"Basic {os.environ['FITBIT_AUTH_HEADER']}"}
         )
