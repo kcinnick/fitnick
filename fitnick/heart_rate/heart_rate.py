@@ -1,11 +1,13 @@
 from sqlalchemy.exc import IntegrityError
 
+
 def get_heart_rate_time_series(authorized_client, db_connection, table, config):
     """
     The two time-series based queries supported are documented here:
     https://dev.fitbit.com/build/reference/web-api/heart-rate/#get-heart-rate-time-series
     :param authorized_client: An authorized Fitbit client, like the one returned by get_authorized_client.
     :param db_connection: PostgreSQL database connection to /fitbit or /fitbit-test.
+    :param table: sqlalchemy.Table object.
     :param config: dict containing the settings that determine what kind of time-series request gets made.
     :return:
     """
