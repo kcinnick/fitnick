@@ -4,17 +4,17 @@
 
 import datetime
 from decimal import Decimal
-
 import os
 
 from sqlalchemy import create_engine
 
 from fitnick import main
-from fitnick.heart_rate.heart_rate import get_heart_rate_time_series, heart_daily_table, heart_daterange_table
-
+from fitnick.heart_rate.heart_rate import get_heart_rate_time_series
+from fitnick.models import heart_daily_table, heart_daterange_table
 
 HEART_DATERANGE_EXPECTED_ROWS = [
-    ('Out of Range', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('1299.00000'), Decimal('2164.34791')),
+    ('Out of Range', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('1299.00000'),
+     Decimal('2164.34791')),
     ('Fat Burn', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('126.00000'), Decimal('819.35015')),
     ('Cardio', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('2.00000'), Decimal('21.40238')),
     ('Peak', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('0.00000'), Decimal('0.00000'))
@@ -47,10 +47,8 @@ def test_get_heart_rate_time_series_period(date='2020-08-26'):
     )
     authorized_client = main.get_authorized_client()
 
-    delete_sql_string = f"delete from heart.daily where date='{date}'"
-    select_sql_string = f"select * from heart.daily where date='{date}'"
-
-    purge(db_connection, delete_sql_string, select_sql_string)
+    # Delete the rows that we're expecting to see to avoid false positives.
+    db_connection.execute(heart_daily_table.delete().where(heart_daily_table.columns.date == date))
 
     get_heart_rate_time_series(
         authorized_client,
@@ -64,10 +62,10 @@ def test_get_heart_rate_time_series_period(date='2020-08-26'):
                 }
     )
 
-    with db_connection.connect() as connection:
-        # re-adding them
-        rows = [i for i in connection.execute(select_sql_string)]
-        assert sorted(rows) == sorted(HEART_PERIOD_EXPECTED_ROWS)
+    # checking that they were re-added
+
+    rows = [i for i in db_connection.execute(heart_daily_table.select().where(heart_daily_table.columns.date == date))]
+    assert sorted(rows) == sorted(HEART_PERIOD_EXPECTED_ROWS)
 
 
 def test_get_heart_rate_time_series_daterange(base_date='2020-08-20', end_date='2020-08-27'):
@@ -77,22 +75,23 @@ def test_get_heart_rate_time_series_daterange(base_date='2020-08-20', end_date='
     )
     authorized_client = main.get_authorized_client()
 
-    delete_sql_string = f"delete from heart.daterange where base_date='{base_date}' and end_date='{end_date}'"
-    select_sql_string = f"select * from heart.daterange where base_date='{base_date}' and end_date='{end_date}'"
+    statement = (
+        heart_daterange_table.columns.base_date == base_date and
+        heart_daterange_table.columns.end_date == end_date
+    )
 
-    with db_connection.connect() as connection:
-        purge(connection, delete_sql_string, select_sql_string)
+    db_connection.execute(
+        heart_daterange_table.delete().where(statement)
+    )
 
-        main.get_heart_rate_time_series(
-            authorized_client, table=heart_daterange_table, db_connection=db_connection, config={
-                'database': 'heart',
-                'table': 'daterange',
-                'base_date': base_date,
-                'end_date': end_date,
-                'columns': ['base_date', 'end_date', 'type', 'minutes', 'calories']}
-        )
+    main.get_heart_rate_time_series(
+        authorized_client, table=heart_daterange_table, db_connection=db_connection, config={
+            'database': 'heart',
+            'table': 'daterange',
+            'base_date': base_date,
+            'end_date': end_date,
+            'columns': ['base_date', 'end_date', 'type', 'minutes', 'calories']}
+    )
 
-    with db_connection.connect() as connection:
-        # checking that they were re-added
-        rows = [i for i in connection.execute(select_sql_string)]
-        assert sorted(rows) == sorted(HEART_DATERANGE_EXPECTED_ROWS)
+    rows = [i for i in db_connection.execute(heart_daterange_table.select().where(statement))]
+    assert sorted(rows) == sorted(HEART_DATERANGE_EXPECTED_ROWS)
