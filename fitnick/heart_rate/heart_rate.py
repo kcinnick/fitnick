@@ -1,32 +1,4 @@
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import MetaData, Table, Column, VARCHAR, UniqueConstraint, Numeric, Date
-
-from fitnick.base.base import build_sql_command, get_authorized_client
-
-meta = MetaData()
-heart_daily_table = Table(
-    'daily',
-    meta,
-    Column('type', VARCHAR, primary_key=True),
-    Column('minutes', Numeric(10, 5)),
-    Column('date', Date, nullable=False),
-    Column('calories', Numeric(10, 5)),
-    UniqueConstraint('type', 'minutes', 'date', 'calories', name='daily_type_minutes_date_calories'),
-    schema='heart'
-)
-
-heart_daterange_table = Table(
-    'daterange',
-    meta,
-    Column('type', VARCHAR, primary_key=True),
-    Column('base_date', Date, nullable=False),
-    Column('end_date', Date, nullable=False),
-    Column('minutes', Numeric(10, 5)),
-    Column('calories', Numeric(10, 5)),
-    UniqueConstraint('base_date', 'end_date', 'type', name='daterange_base_date_end_date_type_key'),
-    schema='heart'
-)
-
 
 def get_heart_rate_time_series(authorized_client, db_connection, table, config):
     """
@@ -60,22 +32,25 @@ def get_heart_rate_time_series(authorized_client, db_connection, table, config):
     heart_series_data = {i['name']: (i['minutes'], i['caloriesOut']) for i in heart_series_data}
     with db_connection.connect() as connection:
         for heart_range_type, details in heart_series_data.items():
-            if table.name == 'daterange':
-                connection.execute(
-                    table.insert(),
-                    {"type": heart_range_type,
-                     "base_date": config['base_date'],
-                     "end_date": config['end_date'],
-                     "minutes": details[0],
-                     "calories": details[1]}
-                )
-                continue
-            else:
-                connection.execute(
-                    table.insert(),
-                    {"type": heart_range_type,
-                     "minutes": details[0],
-                     "date": config['base_date'],
-                     "calories": details[1]}
-                )
-                continue
+            try:
+                if table.name == 'daterange':
+                    connection.execute(
+                        table.insert(),
+                        {"type": heart_range_type,
+                         "base_date": config['base_date'],
+                         "end_date": config['end_date'],
+                         "minutes": details[0],
+                         "calories": details[1]}
+                    )
+                    continue
+                else:
+                    connection.execute(
+                        table.insert(),
+                        {"type": heart_range_type,
+                         "minutes": details[0],
+                         "date": config['base_date'],
+                         "calories": details[1]}
+                    )
+                    continue
+            except IntegrityError:
+                print('Duplicate row - ignoring & continuing.')
