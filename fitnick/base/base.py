@@ -3,6 +3,7 @@ from datetime import datetime
 import os
 
 import fitbit
+from sqlalchemy import create_engine
 
 
 def get_authorized_client() -> fitbit.Fitbit:
@@ -59,14 +60,11 @@ def check_date(date):
     return True
 
 
-def build_sql_command(config, type, data):
-    sql_string = f"insert into {config['database']}.{config['table']} ("
-    sql_string += ', '.join(config['columns'])
-    sql_string += f") values "
-    if type == 'heart_rate_time_series_daterange':
-        sql_string += f"{config['base_date'], config['end_date'], data[0], data[1][0], data[1][1]}"
-    elif type == 'heart_rate_time_series_period':
-        sql_string += f"{data[0], data[1][0], config['base_date'], data[1][1]}"
-    else:
-        raise NotImplementedError('Unsupported type: ', type)
-    return sql_string
+def create_db_engine(database='fitbit'):
+    db_connection = create_engine(
+        f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
+        f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
+        f":5432/{database}"
+    )
+
+    return db_connection
