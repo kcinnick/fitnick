@@ -4,9 +4,6 @@
 
 import datetime
 from decimal import Decimal
-import os
-
-from sqlalchemy import create_engine
 
 from fitnick import main
 from fitnick.base.base import create_db_engine
@@ -52,12 +49,8 @@ def test_get_heart_rate_time_series_period(date='2020-08-26'):
         authorized_client,
         table=heart_daily_table,
         database='fitbit_test',
-        config={'database': 'heart',
-                'table': 'daily',
-                'base_date': '2020-08-26',
-                'period': '1d',
-                'columns': ['type', 'minutes', 'date', 'calories']
-                }
+        config={'base_date': '2020-08-26',
+                'period': '1d'}
     )
 
     # checking that they were re-added
@@ -81,11 +74,9 @@ def test_get_heart_rate_time_series_daterange(base_date='2020-08-20', end_date='
 
     main.get_heart_rate_time_series(
         authorized_client, table=heart_daterange_table, database='fitbit_test', config={
-            'database': 'heart',
-            'table': 'daterange',
             'base_date': base_date,
-            'end_date': end_date,
-            'columns': ['base_date', 'end_date', 'type', 'minutes', 'calories']}
+            'end_date': end_date
+        }
     )
 
     rows = [i for i in db_connection.execute(heart_daterange_table.select().where(statement))]
