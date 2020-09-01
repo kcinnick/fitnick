@@ -1,7 +1,8 @@
 from sqlalchemy.exc import IntegrityError
+from fitnick.base.base import create_db_engine
 
 
-def get_heart_rate_time_series(authorized_client, db_connection, table, config):
+def get_heart_rate_time_series(authorized_client, table, config):
     """
     The two time-series based queries supported are documented here:
     https://dev.fitbit.com/build/reference/web-api/heart-rate/#get-heart-rate-time-series
@@ -32,6 +33,8 @@ def get_heart_rate_time_series(authorized_client, db_connection, table, config):
 
     heart_series_data = data['activities-heart'][0]['value']['heartRateZones']
     heart_series_data = {i['name']: (i['minutes'], i['caloriesOut']) for i in heart_series_data}
+    db_connection = create_db_engine(database='fitbit')
+
     with db_connection.connect() as connection:
         for heart_range_type, details in heart_series_data.items():
             try:
@@ -44,7 +47,7 @@ def get_heart_rate_time_series(authorized_client, db_connection, table, config):
                          "minutes": details[0],
                          "calories": details[1]}
                     )
-                    continue
+                    continue  # move on to next record
                 else:
                     connection.execute(
                         table.insert(),
@@ -53,6 +56,6 @@ def get_heart_rate_time_series(authorized_client, db_connection, table, config):
                          "date": config['base_date'],
                          "calories": details[1]}
                     )
-                    continue
+                    continue  # move on to next record
             except IntegrityError:
                 print('Duplicate row - ignoring & continuing.')
