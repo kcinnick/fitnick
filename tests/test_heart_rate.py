@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from fitnick import main
 from fitnick.base.base import create_db_engine
-from fitnick.heart_rate.heart_rate import get_heart_rate_time_series
+from fitnick.heart_rate.heart_rate import get_heart_rate_zone_time_series
 from fitnick.models import heart_daily_table, heart_daterange_table
 
 HEART_DATERANGE_EXPECTED_ROWS = [
@@ -45,7 +45,7 @@ def test_get_heart_rate_time_series_period(date='2020-08-26'):
     # Delete the rows that we're expecting to see to avoid false positives.
     db_connection.execute(heart_daily_table.delete().where(heart_daily_table.columns.date == date))
 
-    get_heart_rate_time_series(
+    get_heart_rate_zone_time_series(
         authorized_client,
         table=heart_daily_table,
         database='fitbit_test',
@@ -72,7 +72,7 @@ def test_get_heart_rate_time_series_daterange(base_date='2020-08-20', end_date='
         heart_daterange_table.delete().where(statement)
     )
 
-    main.get_heart_rate_time_series(
+    get_heart_rate_zone_time_series(
         authorized_client, table=heart_daterange_table, database='fitbit_test', config={
             'base_date': base_date,
             'end_date': end_date
