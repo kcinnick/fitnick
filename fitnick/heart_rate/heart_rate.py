@@ -1,9 +1,34 @@
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import MetaData, Table, Column, VARCHAR, UniqueConstraint, Numeric, Date
 
 from fitnick.base.base import build_sql_command, get_authorized_client
 
+meta = MetaData()
+heart_daily_table = Table(
+    'daily',
+    meta,
+    Column('type', VARCHAR, primary_key=True),
+    Column('minutes', Numeric(10, 5)),
+    Column('date', Date, nullable=False),
+    Column('calories', Numeric(10, 5)),
+    UniqueConstraint('type', 'minutes', 'date', 'calories', name='daily_type_minutes_date_calories'),
+    schema='heart'
+)
 
-def get_heart_rate_time_series(authorized_client, db_connection, config):
+heart_daterange_table = Table(
+    'daterange',
+    meta,
+    Column('type', VARCHAR, primary_key=True),
+    Column('base_date', Date, nullable=False),
+    Column('end_date', Date, nullable=False),
+    Column('minutes', Numeric(10, 5)),
+    Column('calories', Numeric(10, 5)),
+    UniqueConstraint('base_date', 'end_date', 'type', name='daterange_base_date_end_date_type_key'),
+    schema='heart'
+)
+
+
+def get_heart_rate_time_series(authorized_client, db_connection, table, config):
     """
     The two time-series based queries supported are documented here:
     https://dev.fitbit.com/build/reference/web-api/heart-rate/#get-heart-rate-time-series
@@ -12,7 +37,7 @@ def get_heart_rate_time_series(authorized_client, db_connection, config):
     :param config: dict containing the settings that determine what kind of time-series request gets made.
     :return:
     """
-    if 'end_date' in config.keys():
+    if table.name == 'daterange':
         data = authorized_client.time_series(
             resource='activities/heart',
             base_date=config['base_date'],
@@ -35,20 +60,22 @@ def get_heart_rate_time_series(authorized_client, db_connection, config):
     heart_series_data = {i['name']: (i['minutes'], i['caloriesOut']) for i in heart_series_data}
     with db_connection.connect() as connection:
         for heart_range_type, details in heart_series_data.items():
-            if 'end_date' in config.keys():
-                sql_string = build_sql_command(
-                    config,
-                    type='heart_rate_time_series_daterange',
-                    data=[heart_range_type, details]
+            if table.name == 'daterange':
+                connection.execute(
+                    table.insert(),
+                    {"type": heart_range_type,
+                     "base_date": config['base_date'],
+                     "end_date": config['end_date'],
+                     "minutes": details[0],
+                     "calories": details[1]}
                 )
+                continue
             else:
-                sql_string = build_sql_command(
-                    config,
-                    type='heart_rate_time_series_period',
-                    data=[heart_range_type, details]
+                connection.execute(
+                    table.insert(),
+                    {"type": heart_range_type,
+                     "minutes": details[0],
+                     "date": config['base_date'],
+                     "calories": details[1]}
                 )
-            try:
-                connection.execute(sql_string)
-            except IntegrityError:  # data already exists for this date.
-                print('Data already exists in database for this date. Moving on.\n')
-    return
+                continue

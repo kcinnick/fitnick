@@ -10,14 +10,14 @@ import os
 from sqlalchemy import create_engine
 
 from fitnick import main
-from fitnick.heart_rate.heart_rate import get_heart_rate_time_series
+from fitnick.heart_rate.heart_rate import get_heart_rate_time_series, heart_daily_table, heart_daterange_table
 
 
 HEART_DATERANGE_EXPECTED_ROWS = [
-            ('Out of Range', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('1299.00000'), Decimal('2164.34791')),
-            ('Fat Burn', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('126.00000'), Decimal('819.35015')),
-            ('Cardio', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('2.00000'), Decimal('21.40238')),
-            ('Peak', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('0.00000'), Decimal('0.00000'))
+    ('Out of Range', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('1299.00000'), Decimal('2164.34791')),
+    ('Fat Burn', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('126.00000'), Decimal('819.35015')),
+    ('Cardio', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('2.00000'), Decimal('21.40238')),
+    ('Peak', datetime.date(2020, 8, 20), datetime.date(2020, 8, 27), Decimal('0.00000'), Decimal('0.00000'))
 ]
 
 HEART_PERIOD_EXPECTED_ROWS = [
@@ -55,6 +55,7 @@ def test_get_heart_rate_time_series_period(date='2020-08-26'):
     get_heart_rate_time_series(
         authorized_client,
         db_connection=db_connection,
+        table=heart_daily_table,
         config={'database': 'heart',
                 'table': 'daily',
                 'base_date': '2020-08-26',
@@ -83,7 +84,7 @@ def test_get_heart_rate_time_series_daterange(base_date='2020-08-20', end_date='
         purge(connection, delete_sql_string, select_sql_string)
 
         main.get_heart_rate_time_series(
-            authorized_client, db_connection=connection, config={
+            authorized_client, table=heart_daterange_table, db_connection=db_connection, config={
                 'database': 'heart',
                 'table': 'daterange',
                 'base_date': base_date,
