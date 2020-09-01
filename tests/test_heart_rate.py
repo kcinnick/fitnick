@@ -5,8 +5,7 @@
 import datetime
 from decimal import Decimal
 
-from fitnick import main
-from fitnick.base.base import create_db_engine
+from fitnick.base.base import create_db_engine, get_authorized_client
 from fitnick.heart_rate.heart_rate import get_heart_rate_zone_time_series
 from fitnick.models import heart_daily_table, heart_daterange_table
 
@@ -40,7 +39,7 @@ def purge(db_connection, delete_sql_string, select_sql_string):
 
 def test_get_heart_rate_time_series_period(date='2020-08-26'):
     db_connection = create_db_engine(database='fitbit_test')
-    authorized_client = main.get_authorized_client()
+    authorized_client = get_authorized_client()
 
     # Delete the rows that we're expecting to see to avoid false positives.
     db_connection.execute(heart_daily_table.delete().where(heart_daily_table.columns.date == date))
@@ -61,7 +60,7 @@ def test_get_heart_rate_time_series_period(date='2020-08-26'):
 
 def test_get_heart_rate_time_series_daterange(base_date='2020-08-20', end_date='2020-08-27'):
     db_connection = create_db_engine(database='fitbit_test')
-    authorized_client = main.get_authorized_client()
+    authorized_client = get_authorized_client()
 
     statement = (
         heart_daterange_table.columns.base_date == base_date and
