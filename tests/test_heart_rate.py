@@ -9,6 +9,7 @@ import os
 from sqlalchemy import create_engine
 
 from fitnick import main
+from fitnick.base.base import create_db_engine
 from fitnick.heart_rate.heart_rate import get_heart_rate_time_series
 from fitnick.models import heart_daily_table, heart_daterange_table
 
@@ -41,10 +42,7 @@ def purge(db_connection, delete_sql_string, select_sql_string):
 
 
 def test_get_heart_rate_time_series_period(date='2020-08-26'):
-    db_connection = create_engine(
-        f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@" +
-        f"{os.environ['POSTGRES_IP']}:5432/fitbit_test"
-    )
+    db_connection = create_db_engine(database='fitbit_test')
     authorized_client = main.get_authorized_client()
 
     # Delete the rows that we're expecting to see to avoid false positives.
@@ -52,8 +50,8 @@ def test_get_heart_rate_time_series_period(date='2020-08-26'):
 
     get_heart_rate_time_series(
         authorized_client,
-        db_connection=db_connection,
         table=heart_daily_table,
+        database='fitbit_test',
         config={'database': 'heart',
                 'table': 'daily',
                 'base_date': '2020-08-26',
@@ -69,10 +67,7 @@ def test_get_heart_rate_time_series_period(date='2020-08-26'):
 
 
 def test_get_heart_rate_time_series_daterange(base_date='2020-08-20', end_date='2020-08-27'):
-    db_connection = create_engine(
-        f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:{os.environ['POSTGRES_PASSWORD']}@"
-        f"{os.environ['POSTGRES_IP']}:5432/fitbit_test"
-    )
+    db_connection = create_db_engine(database='fitbit_test')
     authorized_client = main.get_authorized_client()
 
     statement = (
@@ -85,7 +80,7 @@ def test_get_heart_rate_time_series_daterange(base_date='2020-08-20', end_date='
     )
 
     main.get_heart_rate_time_series(
-        authorized_client, table=heart_daterange_table, db_connection=db_connection, config={
+        authorized_client, table=heart_daterange_table, database='fitbit_test', config={
             'database': 'heart',
             'table': 'daterange',
             'base_date': base_date,
