@@ -5,14 +5,9 @@
 import datetime
 from decimal import Decimal
 
-<<<<<<< HEAD
-from fitnick.base.base import create_db_engine, get_authorized_client
-from fitnick.heart_rate.heart_rate import get_heart_rate_time_series
-=======
 from fitnick import main
 from fitnick.base.base import create_db_engine
 from fitnick.heart_rate.heart_rate import get_heart_rate_zone_time_series
->>>>>>> 8c0a6ffd8a0ab29c0e6be9b93dcacf6d6782499c
 from fitnick.models import heart_daily_table, heart_daterange_table
 
 HEART_DATERANGE_EXPECTED_ROWS = [
