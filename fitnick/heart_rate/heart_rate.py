@@ -37,8 +37,8 @@ def get_heart_rate_zone_time_series(authorized_client, database, table, config):
 
     with db_connection.connect() as connection:
         for heart_range_type, details in heart_rate_zone_series_data.items():
-            try:
-                if table.name == 'daterange':
+            if table.name == 'daterange':
+                try:
                     connection.execute(
                         table.insert(),
                         {"type": heart_range_type,
@@ -47,15 +47,28 @@ def get_heart_rate_zone_time_series(authorized_client, database, table, config):
                          "minutes": details[0],
                          "calories": details[1]}
                     )
-                    continue  # move on to next record
-                else:
+                except IntegrityError:
+                    connection.execute(
+                        table.update(),
+                        {"type": heart_range_type,
+                         "base_date": config['base_date'],
+                         "end_date": config['end_date'],
+                         "minutes": details[0],
+                         "calories": details[1]}
+                    )
+                continue  # move on to next record
+            else:
+                try:
                     connection.execute(
                         table.insert(),
                         {"type": heart_range_type,
                          "minutes": details[0],
                          "date": config['base_date'],
-                         "calories": details[1]}
-                    )
-                    continue  # move on to next record
-            except IntegrityError:
-                print('Duplicate row - ignoring & continuing.')
+                         "calories": details[1]})
+                except IntegrityError:
+                    connection.execute(
+                        table.update(),
+                        {"type": heart_range_type,
+                         "minutes": details[0],
+                         "date": config['base_date'],
+                         "calories": details[1]})
