@@ -42,8 +42,10 @@ def refresh_authorized_client():
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Authorization': f"Basic {os.environ['FITBIT_AUTH_HEADER']}"}
         )
+        print(r.content)
         os.environ['FITBIT_ACCESS_KEY'] = r.json()['access_token']
         os.environ['FITBIT_REFRESH_TOKEN'] = r.json()['refresh_token']
+        print(r.json())
     return
 
 
@@ -62,7 +64,7 @@ def check_date(date):
 
 def create_db_engine(database='fitbit'):
     db_connection = create_engine(
-        f"postgres+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
+        f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
         f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
         f":5432/{database}"
     )
