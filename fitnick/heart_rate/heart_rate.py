@@ -58,8 +58,8 @@ def get_heart_rate_zone_time_series(authorized_client, database, table, config):
                              "calories": details[1]}
                         )
                     except IntegrityError:
-                        print('Data already exists in DB. Exiting.\n')
-                        return
+                        print('Data already exists in DB. Continuing.\n')
+                        continue
                 continue  # move on to next record
             else:
                 try:
@@ -78,5 +78,5 @@ def get_heart_rate_zone_time_series(authorized_client, database, table, config):
                              "date": config['base_date'],
                              "calories": details[1]})
                     except IntegrityError:
-                        print('Data already exists in DB. Exiting.\n')
-                        return
+                        print('Data already exists in DB. Continuing.\n')
+                        continue
