@@ -15,14 +15,15 @@ def build_sql_expression(table, conditions):
     return expression
 
 
-def get_1d_heart_rate_zone_data(heart_rate_zone='Cardio', table=heart_daily_table):
+def compare_1d_heart_rate_zone_data(heart_rate_zone='Cardio', database='fitbit', table=heart_daily_table):
     """
-    Retrieves today & yesterday's heart rate zone data for the zone specified.
-    :param heart_rate_zone: str, heart rate zone data desired
+    Retrieves & compares today & yesterday's heart rate zone data for the zone specified.
+    :param heart_rate_zone: str, Heart rate zone data desired. Options are Cardio, Peak, Fat Burn & Out of Range.
+    :param database: str, Database to use for data comparison. Options are fitbit or fitbit-test.
     :param table: sqlalchemy.Table object to retrieve data from.
     :return:
     """
-    db_connection = create_db_engine(database='fitbit')
+    db_connection = create_db_engine(database=database)
 
     today_date_string = date.today()
     yesterday_date_string = date.today() - timedelta(days=1)
@@ -39,16 +40,14 @@ def get_1d_heart_rate_zone_data(heart_rate_zone='Cardio', table=heart_daily_tabl
         f"{minutes_in_zone_yesterday} yesterday."
     )
 
-    if minutes_in_zone_today < minutes_in_zone_yesterday:
-        print('Get moving! That\'s {} minutes less than yesterday!'.format(
-            int(minutes_in_zone_yesterday - minutes_in_zone_today)
-        ))
-    else:
-        print('Good work! That\'s {} minutes more than yesterday!'.format(
-            int(minutes_in_zone_today - minutes_in_zone_yesterday)
-        ))
+    if heart_rate_zone != 'Out of Range':
+        if minutes_in_zone_today < minutes_in_zone_yesterday:
+            print('Get moving! That\'s {} minutes less than yesterday!'.format(
+                int(minutes_in_zone_yesterday - minutes_in_zone_today)
+            ))
+        else:
+            print('Good work! That\'s {} minutes more than yesterday!'.format(
+                int(minutes_in_zone_today - minutes_in_zone_yesterday)
+            ))
 
-    return
-
-
-get_1d_heart_rate_zone_data('Cardio', heart_daily_table)
+    return heart_rate_zone, minutes_in_zone_today, minutes_in_zone_yesterday

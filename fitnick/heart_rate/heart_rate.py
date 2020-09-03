@@ -48,14 +48,18 @@ def get_heart_rate_zone_time_series(authorized_client, database, table, config):
                          "calories": details[1]}
                     )
                 except IntegrityError:
-                    connection.execute(
-                        table.update(),
-                        {"type": heart_range_type,
-                         "base_date": config['base_date'],
-                         "end_date": config['end_date'],
-                         "minutes": details[0],
-                         "calories": details[1]}
-                    )
+                    try:
+                        connection.execute(
+                            table.update(),
+                            {"type": heart_range_type,
+                             "base_date": config['base_date'],
+                             "end_date": config['end_date'],
+                             "minutes": details[0],
+                             "calories": details[1]}
+                        )
+                    except IntegrityError:
+                        print('Data already exists in DB. Continuing.\n')
+                        continue
                 continue  # move on to next record
             else:
                 try:
@@ -66,9 +70,13 @@ def get_heart_rate_zone_time_series(authorized_client, database, table, config):
                          "date": config['base_date'],
                          "calories": details[1]})
                 except IntegrityError:
-                    connection.execute(
-                        table.update(),
-                        {"type": heart_range_type,
-                         "minutes": details[0],
-                         "date": config['base_date'],
-                         "calories": details[1]})
+                    try:
+                        connection.execute(
+                            table.update(),
+                            {"type": heart_range_type,
+                             "minutes": details[0],
+                             "date": config['base_date'],
+                             "calories": details[1]})
+                    except IntegrityError:
+                        print('Data already exists in DB. Continuing.\n')
+                        continue
