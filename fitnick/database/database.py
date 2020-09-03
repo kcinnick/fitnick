@@ -50,12 +50,4 @@ def compare_1d_heart_rate_zone_data(heart_rate_zone='Cardio', database='fitbit',
                 int(minutes_in_zone_today - minutes_in_zone_yesterday)
             ))
 
-    return
-
-
-def main():
-    compare_1d_heart_rate_zone_data('Cardio', heart_daily_table)
-
-
-if __name__ == '__main__':
-    main()
+    return heart_rate_zone, minutes_in_zone_today, minutes_in_zone_yesterday
