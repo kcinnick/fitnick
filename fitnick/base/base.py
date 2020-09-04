@@ -4,6 +4,7 @@ import os
 
 import fitbit
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 
 
 def get_authorized_client() -> fitbit.Fitbit:
@@ -70,3 +71,20 @@ def create_db_engine(database='fitbit'):
     )
 
     return db_connection
+
+
+def insert_or_update(connection, payload, table):
+    try:
+        connection.execute(
+            table.insert(),
+            payload
+        )
+    except IntegrityError:
+        try:
+            connection.execute(
+                table.update(),
+                payload
+            )
+        except IntegrityError:
+            print('Data already exists in DB. Continuing.\n')
+            return

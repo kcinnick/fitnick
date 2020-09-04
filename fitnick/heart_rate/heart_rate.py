@@ -1,5 +1,4 @@
-from sqlalchemy.exc import IntegrityError
-from fitnick.base.base import create_db_engine
+from fitnick.base.base import create_db_engine, insert_or_update
 
 
 def get_heart_rate_zone_time_series(authorized_client, database, table, config):
@@ -38,45 +37,19 @@ def get_heart_rate_zone_time_series(authorized_client, database, table, config):
     with db_connection.connect() as connection:
         for heart_range_type, details in heart_rate_zone_series_data.items():
             if table.name == 'daterange':
-                try:
-                    connection.execute(
-                        table.insert(),
-                        {"type": heart_range_type,
-                         "base_date": config['base_date'],
-                         "end_date": config['end_date'],
-                         "minutes": details[0],
-                         "calories": details[1]}
-                    )
-                except IntegrityError:
-                    try:
-                        connection.execute(
-                            table.update(),
-                            {"type": heart_range_type,
-                             "base_date": config['base_date'],
-                             "end_date": config['end_date'],
-                             "minutes": details[0],
-                             "calories": details[1]}
-                        )
-                    except IntegrityError:
-                        print('Data already exists in DB. Continuing.\n')
-                        continue
-                continue  # move on to next record
+                payload = {
+                    "type": heart_range_type,
+                    "base_date": config['base_date'],
+                    "end_date": config['end_date'],
+                    "minutes": details[0],
+                    "calories": details[1]
+                }
+                insert_or_update(connection, payload, table)
             else:
-                try:
-                    connection.execute(
-                        table.insert(),
-                        {"type": heart_range_type,
-                         "minutes": details[0],
-                         "date": config['base_date'],
-                         "calories": details[1]})
-                except IntegrityError:
-                    try:
-                        connection.execute(
-                            table.update(),
-                            {"type": heart_range_type,
-                             "minutes": details[0],
-                             "date": config['base_date'],
-                             "calories": details[1]})
-                    except IntegrityError:
-                        print('Data already exists in DB. Continuing.\n')
-                        continue
+                payload = {
+                    "type": heart_range_type,
+                    "minutes": details[0],
+                    "date": config['base_date'],
+                    "calories": details[1]
+                }
+                insert_or_update(connection, payload, table)
