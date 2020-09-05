@@ -47,6 +47,7 @@ def refresh_authorized_client():
         os.environ['FITBIT_ACCESS_KEY'] = r.json()['access_token']
         os.environ['FITBIT_REFRESH_TOKEN'] = r.json()['refresh_token']
         print(r.json())
+
     return
 
 
@@ -63,13 +64,13 @@ def check_date(date):
     return True
 
 
-def create_db_engine(database='fitbit'):
+def create_db_engine(database='fitbit', schema='heart'):
     db_connection = create_engine(
         f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
         f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
         f":5432/{database}"
     )
-
+    db_connection.connect().execute(f"ALTER USER postgres SET search_path to '{schema}';")
     return db_connection
 
 

@@ -1,7 +1,21 @@
-from sqlalchemy import MetaData, Table, Column, VARCHAR, UniqueConstraint, Numeric, Date
+from datetime import datetime
 
+from sqlalchemy import MetaData, Table, Column, VARCHAR, UniqueConstraint, Numeric, Date, Integer, String, DateTime
+from sqlalchemy.ext.declarative import declarative_base
 
 meta = MetaData()
+Base = declarative_base()
+
+
+class HeartDaily(Base):
+    __tablename__ = 'daily'
+    type = Column(VARCHAR, primary_key=True)
+    minutes = Column(Numeric(10, 5)),
+    date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    calories = Column(Numeric(10, 5))
+    UniqueConstraint('type', 'minutes', 'date', 'calories', name='daily_type_minutes_date_calories')
+
+
 heart_daily_table = Table(
     'daily',
     meta,
