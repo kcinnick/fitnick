@@ -1,10 +1,8 @@
 from datetime import timedelta
 from datetime import date
 
-from sqlalchemy.sql import and_
-
-from fitnick.base.base import get_authorized_client, create_db_engine
-from fitnick.models import heart_daterange_table, heart_daily_table
+from fitnick.base.base import create_db_engine
+from fitnick.heart_rate.models import heart_daily_table
 
 
 def build_sql_expression(table, conditions):
