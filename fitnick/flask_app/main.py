@@ -3,11 +3,15 @@ from flask import Flask, make_response, render_template, request
 app = Flask(__name__)
 
 
-@app.route("/", methods=['GET', 'POST'])
+@app.route("/", methods=['GET'])
 def index():
-    print(request.method)
+    return render_template("index.html")
+
+
+@app.route("/get_heart_rate_zone_today", methods=['GET', 'POST'])
+def get_heart_rate_zone_today():
     if request.method == 'POST':
-        print("Do whatever you would do to retrieve heart rate for today and place it in DB.")
+        print("Get heart rate zone method.")
         return render_template("index.html", value='Today\'s heart rate data was placed in the database!')
     else:
         return render_template("index.html")
