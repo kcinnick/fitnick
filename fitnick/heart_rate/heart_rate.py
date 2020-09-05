@@ -1,7 +1,10 @@
-from fitnick.base.base import create_db_engine, insert_or_update
+from sqlalchemy.exc import IntegrityError
+
+from sqlalchemy.orm import sessionmaker
+from fitnick.heart_rate.models import HeartDaily
 
 
-def get_heart_rate_zone_time_series(authorized_client, database, table, config):
+def get_heart_rate_zone_time_series(authorized_client, engine, config):
     """
     The two time-series based queries supported are documented here:
     https://dev.fitbit.com/build/reference/web-api/heart-rate/#get-heart-rate-time-series
@@ -11,7 +14,7 @@ def get_heart_rate_zone_time_series(authorized_client, database, table, config):
     :param config: dict containing the settings that determine what kind of time-series request gets made.
     :return:
     """
-    if table.name == 'daterange':
+    if config.get('end_date'):
         data = authorized_client.time_series(
             resource='activities/heart',
             base_date=config['base_date'],
@@ -30,26 +33,36 @@ def get_heart_rate_zone_time_series(authorized_client, database, table, config):
         print('Dates must be formatted as YYYY-MM-DD. Exiting.')
         exit()
 
-    heart_rate_zone_series_data = data['activities-heart'][0]['value']['heartRateZones']
-    heart_rate_zone_series_data = {i['name']: (i['minutes'], i['caloriesOut']) for i in heart_rate_zone_series_data}
-    db_connection = create_db_engine(database=database)
+    session = sessionmaker()
+    session.configure(bind=engine)
+    session = session()
 
-    with db_connection.connect() as connection:
-        for heart_range_type, details in heart_rate_zone_series_data.items():
-            if table.name == 'daterange':
-                payload = {
-                    "type": heart_range_type,
-                    "base_date": config['base_date'],
-                    "end_date": config['end_date'],
-                    "minutes": details[0],
-                    "calories": details[1]
-                }
-                insert_or_update(connection, payload, table)
-            else:
-                payload = {
-                    "type": heart_range_type,
-                    "minutes": details[0],
-                    "date": config['base_date'],
-                    "calories": details[1]
-                }
-                insert_or_update(connection, payload, table)
+    for day in data['activities-heart']:
+        date = day['dateTime']
+        try:
+            resting_heart_rate = day['value']['restingHeartRate']
+        except KeyError:
+            resting_heart_rate = 0
+        for heart_rate_zone in day['value']['heartRateZones']:
+            row = HeartDaily(
+                type=heart_rate_zone['name'],
+                minutes=heart_rate_zone.get('minutes', 0),
+                date=date,
+                calories=heart_rate_zone.get('caloriesOut', 0),
+                resting_heart_rate=resting_heart_rate
+            )
+            try:
+                session.add(row)
+                session.commit()
+                continue
+            except IntegrityError:
+                session.rollback()
+                rows = session.query(HeartDaily).filter_by(date=date).filter_by(type=heart_rate_zone['name']).all()
+                for old_row in rows:
+                    if old_row.minutes != row.minutes:  # if there's a discrepancy, delete the old row & add the new one
+                        session.delete(old_row)
+                        session.commit()
+                        session.add(row)
+                        session.commit()
+                    else:
+                        continue
