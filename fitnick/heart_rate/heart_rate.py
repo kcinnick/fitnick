@@ -1,7 +1,32 @@
 from sqlalchemy.exc import IntegrityError
 
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.exc import FlushError
+
+from tqdm import tqdm
+
 from fitnick.heart_rate.models import HeartDaily
+
+
+def rollback_and_commit(session, row):
+    session.rollback()
+    session.commit()
+    session.add(row)
+    session.commit()
+
+
+def update_old_rows(session, date, row, heart_rate_zone):
+    session.rollback()
+    rows = session.query(HeartDaily).filter_by(date=date).filter_by(type=heart_rate_zone['name']).all()
+    for old_row in rows:
+        if old_row.minutes != row.minutes:  # if there's a discrepancy, delete the old row & add the new one
+            session.delete(old_row)
+            session.commit()
+            session.add(row)
+            session.commit()
+        else:
+            continue
+    return
 
 
 def get_heart_rate_zone_time_series(authorized_client, engine, config):
@@ -37,7 +62,7 @@ def get_heart_rate_zone_time_series(authorized_client, engine, config):
     session.configure(bind=engine)
     session = session()
 
-    for day in data['activities-heart']:
+    for day in tqdm(data['activities-heart']):
         date = day['dateTime']
         try:
             resting_heart_rate = day['value']['restingHeartRate']
@@ -56,13 +81,6 @@ def get_heart_rate_zone_time_series(authorized_client, engine, config):
                 session.commit()
                 continue
             except IntegrityError:
-                session.rollback()
-                rows = session.query(HeartDaily).filter_by(date=date).filter_by(type=heart_rate_zone['name']).all()
-                for old_row in rows:
-                    if old_row.minutes != row.minutes:  # if there's a discrepancy, delete the old row & add the new one
-                        session.delete(old_row)
-                        session.commit()
-                        session.add(row)
-                        session.commit()
-                    else:
-                        continue
+                update_old_rows(session, date, row, heart_rate_zone)
+            except FlushError:
+                rollback_and_commit(session, row)
