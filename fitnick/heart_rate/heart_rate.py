@@ -93,14 +93,11 @@ def upload_to_db(session, row):
         session.commit()
     except IntegrityError:
         update_old_rows(session, row)
-    except FlushError as e:
+    except FlushError:
         session.flush()
         session.rollback()
         session.add(row)
         session.commit()
-    except InvalidRequestError:
-        session.rollback()
-        quit()
 
 
 def insert_heart_rate_time_series_data(config):
