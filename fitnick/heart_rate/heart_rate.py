@@ -39,24 +39,27 @@ def get_heart_rate_zone_time_series(authorized_client, engine, config):
     :param config: dict containing the settings that determine what kind of time-series request gets made.
     :return:
     """
+    try:
+        assert len(config['base_date'].split('-')[0]) == 4
+    except AssertionError:
+        print('Dates must be formatted as YYYY-MM-DD. Exiting.')
+        exit()
+
     if config.get('end_date'):
         data = authorized_client.time_series(
             resource='activities/heart',
             base_date=config['base_date'],
             end_date=config['end_date']
         )
-    else:  # we're assuming that if it's not a daterange search, it's a period search.
+    else:
+        # we're assuming that if it's not a daterange search, it's a period search.
+        # period searches look backwards for a base_date - i.e., a base_date of
+        # 2020-09-02 will cover 2020-08-27 to 2020-09-02
         data = authorized_client.time_series(
             resource='activities/heart',
             base_date=config['base_date'],
             period=config['period']
         )
-
-    try:
-        assert len(config['base_date'].split('-')[0]) == 4
-    except AssertionError:
-        print('Dates must be formatted as YYYY-MM-DD. Exiting.')
-        exit()
 
     session = sessionmaker()
     session.configure(bind=engine)
@@ -84,3 +87,4 @@ def get_heart_rate_zone_time_series(authorized_client, engine, config):
                 update_old_rows(session, date, row, heart_rate_zone)
             except FlushError:
                 rollback_and_commit(session, row)
+    return data
