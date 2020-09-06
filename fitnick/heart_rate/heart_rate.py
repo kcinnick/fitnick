@@ -116,9 +116,6 @@ def insert_heart_rate_time_series_data(config):
 
 
 def get_today_heart_rate_time_series_data(database):
-    session = sessionmaker()
-    session.configure(bind=create_db_engine('fitbit'))
-    session = session()
     insert_heart_rate_time_series_data(config={
         'database': database,
         'base_date': date.today().strftime('%Y-%m-%d'),
