@@ -1,23 +1,26 @@
-from sqlalchemy.exc import IntegrityError
+import os
+from datetime import date
 
+from sqlalchemy.exc import IntegrityError, InvalidRequestError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.exc import FlushError
 
 from tqdm import tqdm
 
-from fitnick.heart_rate.models import HeartDaily
+from fitnick.base.base import create_db_engine, get_authorized_client
+from fitnick.heart_rate.models import HeartDaily, heart_daily_table
 
 
 def rollback_and_commit(session, row):
     session.rollback()
-    session.commit()
     session.add(row)
     session.commit()
 
 
-def update_old_rows(session, date, row, heart_rate_zone):
+def update_old_rows(session, row):
     session.rollback()
-    rows = session.query(HeartDaily).filter_by(date=date).filter_by(type=heart_rate_zone['name']).all()
+    session.commit()
+    rows = session.query(HeartDaily).filter_by(date=row.date).filter_by(type=row.type).all()
     for old_row in rows:
         if old_row.minutes != row.minutes:  # if there's a discrepancy, delete the old row & add the new one
             session.delete(old_row)
@@ -29,13 +32,11 @@ def update_old_rows(session, date, row, heart_rate_zone):
     return
 
 
-def get_heart_rate_zone_time_series(authorized_client, engine, config):
+def query_heart_rate_zone_time_series(authorized_client, config):
     """
     The two time-series based queries supported are documented here:
     https://dev.fitbit.com/build/reference/web-api/heart-rate/#get-heart-rate-time-series
     :param authorized_client: An authorized Fitbit client, like the one returned by get_authorized_client.
-    :param database: Database name - should either be `fitbit` or `fitbit_test`.
-    :param table: sqlalchemy.Table object.
     :param config: dict containing the settings that determine what kind of time-series request gets made.
     :return:
     """
@@ -61,11 +62,12 @@ def get_heart_rate_zone_time_series(authorized_client, engine, config):
             period=config['period']
         )
 
-    session = sessionmaker()
-    session.configure(bind=engine)
-    session = session()
+    return data
 
-    for day in tqdm(data['activities-heart']):
+
+def parse_response(data):
+    rows = []
+    for day in data['activities-heart']:
         date = day['dateTime']
         try:
             resting_heart_rate = day['value']['restingHeartRate']
@@ -79,12 +81,49 @@ def get_heart_rate_zone_time_series(authorized_client, engine, config):
                 calories=heart_rate_zone.get('caloriesOut', 0),
                 resting_heart_rate=resting_heart_rate
             )
-            try:
-                session.add(row)
-                session.commit()
-                continue
-            except IntegrityError:
-                update_old_rows(session, date, row, heart_rate_zone)
-            except FlushError:
-                rollback_and_commit(session, row)
-    return data
+            rows.append(row)
+
+    return rows
+
+
+def upload_to_db(session, row):
+    try:
+        session.flush()
+        session.add(row)
+        session.commit()
+    except IntegrityError:
+        update_old_rows(session, row)
+    except FlushError as e:
+        session.flush()
+        session.rollback()
+        session.add(row)
+        session.commit()
+    except InvalidRequestError:
+        session.rollback()
+        quit()
+
+
+def insert_heart_rate_time_series_data(config):
+    authorized_client = get_authorized_client()
+    data = query_heart_rate_zone_time_series(authorized_client, config)
+    parsed_rows = parse_response(data)
+    db = create_db_engine(config['database'])
+    for row in tqdm(parsed_rows):
+        session = sessionmaker()
+        session.configure(bind=db)
+        session = session()
+        upload_to_db(session, row=row)
+        session.close()
+
+    return
+
+
+def get_today_heart_rate_time_series_data(database):
+    session = sessionmaker()
+    session.configure(bind=create_db_engine('fitbit'))
+    session = session()
+    insert_heart_rate_time_series_data(config={
+        'database': database,
+        'base_date': date.today().strftime('%Y-%m-%d'),
+        'period': '1d'
+    })
