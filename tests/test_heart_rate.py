@@ -37,21 +37,22 @@ def purge(db_connection, delete_sql_string, select_sql_string):
     assert len(rows) == 0
 
 
-def test_get_heart_rate_time_series_period(date='2020-08-26'):
+def test_get_heart_rate_time_series_period():
     db_connection = create_db_engine(database='fitbit_test')
     authorized_client = get_authorized_client()
 
-    # Delete the rows that we're expecting to see to avoid false positives.
-    db_connection.execute(heart_daily_table.delete().where(heart_daily_table.columns.date == date))
-
-    get_heart_rate_zone_time_series(
+    period_data = get_heart_rate_zone_time_series(
         authorized_client,
-        config={'base_date': '2020-08-26',
+        config={'base_date': '2020-09-02',
                 'period': '1d'},
         engine=db_connection
     )
 
-    # checking that they were re-added
+    base_and_end_date_data = get_heart_rate_zone_time_series(
+        authorized_client,
+        engine=db_connection,
+        config={'base_date': '2020-09-02',
+                'end_date': '2020-09-02'},
+    )
 
-    rows = [i for i in db_connection.execute(heart_daily_table.select().where(heart_daily_table.columns.date == date))]
-    assert sorted(rows) == sorted(HEART_PERIOD_EXPECTED_ROWS)
+    assert period_data == base_and_end_date_data  # asserting that we get the same response from both invocations
