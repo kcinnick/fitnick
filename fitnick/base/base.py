@@ -64,7 +64,7 @@ def check_date(date):
     return True
 
 
-def create_db_engine(database='fitbit', schema='heart'):
+def create_db_engine(database, schema='heart'):
     db_connection = create_engine(
         f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
         f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
