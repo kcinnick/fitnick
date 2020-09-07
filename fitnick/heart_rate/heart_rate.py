@@ -1,5 +1,5 @@
 import os
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy.exc import IntegrityError, InvalidRequestError
 from sqlalchemy.orm import sessionmaker
@@ -112,12 +112,40 @@ def insert_heart_rate_time_series_data(config):
         upload_to_db(session, row=row)
         session.close()
 
-    return
+    return parsed_rows
 
 
 def get_today_heart_rate_time_series_data(database):
-    insert_heart_rate_time_series_data(config={
+    rows = insert_heart_rate_time_series_data(config={
         'database': database,
         'base_date': date.today().strftime('%Y-%m-%d'),
         'period': '1d'
     })
+
+    return rows
+
+
+def get_heart_rate_zone_for_day(database, date):
+    # add a check to only get this if we don't already have it
+    rows = insert_heart_rate_time_series_data(config={
+        'database': database,
+        'base_date': date,
+        'period': '1d'
+    })
+
+    return rows
+
+
+def backfill(database: str, period: int = 90):
+    """
+    Backfills a database from the current day.
+    Example: if run on 2020-09-06, the database will populate for 2020-06-08 - 2020-09-06
+    :param database:
+    :param period:
+    :return:
+    """
+    backfill_date = date.today() - timedelta(days=period)
+    for day in range(period):
+        get_heart_rate_zone_for_day(database, date=(backfill_date + timedelta(days=day)).strftime('%Y-%m-%d'))
+
+    return
