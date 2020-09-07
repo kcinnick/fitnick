@@ -1,0 +1,35 @@
+<html>
+<head>
+<style>
+table {
+  font-family: arial, sans-serif;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+td, th {
+  border: 1px solid #dddddd;
+  text-align: left;
+  padding: 8px;
+}
+
+tr:nth-child(even) {
+  background-color: #dddddd;
+}
+</style>
+</head>
+    <body>
+
+        <form method="post" action="/get_heart_rate_zone_today">
+            <input type="submit" value="Get heart rate zones for today!"/>
+                <h4> {{ value }} </h4>
+             <table>
+                 <tr> <th>Heart Rate Zone</th> <th>Minutes</th> <th>Calories</th> <th>Date</th></tr>
+                {% for row in rows %}
+                <tr class="even"> <td>{{ row.type }}</td> <td>{{ row.minutes }}</td> <td>{{ row.calories }}</td> <td>{{ row.date }}</td></tr>
+                {% endfor %}
+             </table>
+        </form>
+
+    </body>
+</html>

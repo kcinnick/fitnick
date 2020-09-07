@@ -1,4 +1,5 @@
 from flask import Flask, make_response, render_template, request
+from fitnick.heart_rate.heart_rate import get_today_heart_rate_time_series_data
 
 app = Flask(__name__)
 
@@ -12,7 +13,9 @@ def index():
 def get_heart_rate_zone_today():
     if request.method == 'POST':
         print("Get heart rate zone method.")
-        return render_template("index.html", value='Today\'s heart rate data was placed in the database!')
+        rows = get_today_heart_rate_time_series_data(database='fitbit')
+        return render_template("index.html", value='Today\'s heart rate data was placed in the database!',
+                               rows=rows)
     else:
         return render_template("index.html")
 
