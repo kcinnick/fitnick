@@ -13,7 +13,7 @@ def build_sql_expression(table, conditions):
     return expression
 
 
-def compare_1d_heart_rate_zone_data(heart_rate_zone='Cardio', database='fitbit', table=heart_daily_table):
+def compare_1d_heart_rate_zone_data(heart_rate_zone, database, table=heart_daily_table):
     """
     Retrieves & compares today & yesterday's heart rate zone data for the zone specified.
     :param heart_rate_zone: str, Heart rate zone data desired. Options are Cardio, Peak, Fat Burn & Out of Range.
