@@ -40,7 +40,7 @@ def purge(db_connection, delete_sql_string, select_sql_string):
 def test_get_heart_rate_time_series_period():
     db_connection = create_db_engine(database='fitbit_test', schema='heart')
 
-    purge(db_connection, 'delete from daily;', 'select * from daily')
+    purge(db_connection, 'delete from heart.daily;', 'select * from heart.daily')
 
     insert_heart_rate_time_series_data(config={
         'database': 'fitbit_test',
@@ -48,7 +48,7 @@ def test_get_heart_rate_time_series_period():
         'period': '1d'
     })
 
-    rows = [row for row in db_connection.execute('select * from daily')]
+    rows = [row for row in db_connection.execute('select * from heart.daily')]
 
     assert rows == EXPECTED_ROWS
 
