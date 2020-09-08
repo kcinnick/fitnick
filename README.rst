@@ -18,7 +18,7 @@ Tests passing:
 .. image:: https://i.imgur.com/LuRgElm.png
         :target: https://i.imgur.com/LuRgElm.png
 
-Runs on top of Google Cloud Platform (https://console.cloud.google.com/) and uses `postgresql` as a database.
+Runs on top of Google Cloud Platform (https://console.cloud.google.com/) and uses `postgresql` as a database.  `PySpark` is used for data analysis & large querying - otherwise, `SQLAlchemy` is sufficient and is used instead.
 
 * Free software: MIT license
 * Documentation: https://fitnick.readthedocs.io.
