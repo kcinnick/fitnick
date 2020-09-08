@@ -1,5 +1,4 @@
 """Main module."""
-from datetime import datetime
 import os
 
 import fitbit
@@ -52,14 +51,39 @@ def refresh_authorized_client():
     return
 
 
-def create_db_engine(database, schema='heart', user='postgres'):
+def get_df_from_db(spark_session, database, schema, table):
+    """
+    Retrieves a PySpark dataframe containing all of the data in the specified table.
+    :param spark_session: Existing SparkSession object
+    :param database: str, name of database
+    :param schema: str, name of schema
+    :param table: str, name of table
+    :return: DataFrame
+    """
+    properties = {
+        "driver": "org.postgresql.Driver",
+        "user": os.environ['POSTGRES_USERNAME'],
+        "password": os.environ['POSTGRES_PASSWORD'],
+        "currentSchema": schema
+    }
+
+    df = spark_session.read.jdbc(
+        url=f"jdbc:postgresql://{os.environ['POSTGRES_IP']}/{database}",
+        properties=properties,
+        table=table
+    )
+
+    return df
+
+
+def create_db_engine(database, user='postgres', schema='heart'):
     db_connection = create_engine(
         f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
         f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
         f":5432/{database}"
     )
-    db_connection.connect().execute(f"grant all privileges on database fitbit_test to postgres;")
-    db_connection.connect().execute(f"ALTER USER {user} SET search_path to '{schema}';")
+    db_connection.connect().execute(f"ALTER USER '{user}' SET search_path to '{schema}';")
+
     return db_connection
 
 
