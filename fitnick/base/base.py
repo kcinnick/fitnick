@@ -58,10 +58,10 @@ def create_db_engine(database, schema='heart'):
         f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
         f":5432/{database}"
     )
-    db_connection.connect().execute(f"ALTER USER postgres SET search_path to '{schema}';")
+    db_connection.connect().execute(f"ALTER USER nick SET search_path to '{schema}';")
     return db_connection
 
-              
+
 def create_spark_session():
     spark = SparkSession.builder.getOrCreate()
 
