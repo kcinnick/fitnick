@@ -52,19 +52,6 @@ def refresh_authorized_client():
     return
 
 
-def check_date(date):
-    """
-    Prevents a user from entering incomplete data for the current day.
-    Returns false if the provided date str == today's date str.
-    :param date: str
-    :return: bool
-    """
-    if date == datetime.today().strftime('%Y-%m-%d'):
-        print('Can\'t insert data for today - it\'s not over yet! Exiting.\n')
-        return False
-    return True
-
-
 def create_db_engine(database, schema='heart'):
     db_connection = create_engine(
         f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
@@ -74,7 +61,7 @@ def create_db_engine(database, schema='heart'):
     db_connection.connect().execute(f"ALTER USER postgres SET search_path to '{schema}';")
     return db_connection
 
-
+              
 def create_spark_session():
     spark = SparkSession.builder.getOrCreate()
 

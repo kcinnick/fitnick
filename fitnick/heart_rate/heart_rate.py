@@ -1,14 +1,12 @@
-import os
 from datetime import date, timedelta
 
-from sqlalchemy.exc import IntegrityError, InvalidRequestError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.exc import FlushError
-
 from tqdm import tqdm
 
 from fitnick.base.base import create_db_engine, get_authorized_client
-from fitnick.heart_rate.models import HeartDaily, heart_daily_table
+from fitnick.heart_rate.models import HeartDaily
 
 
 def rollback_and_commit(session, row):
