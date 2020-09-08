@@ -1,9 +1,11 @@
 import os
 from datetime import timedelta
 from datetime import date
+from fitnick.base.base import get_df_from_db
+from fitnick.heart_rate.heart_rate import get_heart_rate_zone_for_day
 
 
-def compare_1d_heart_rate_zone_data(spark_session, heart_rate_zone='Cardio', database='fitbit', schema="heart"):
+def compare_1d_heart_rate_zone_data(spark_session, heart_rate_zone, database, schema):
     """
     Retrieves & compares today & yesterday's heart rate zone data for the zone specified.
     :param spark_session: An initialized SparkSession.
@@ -12,26 +14,21 @@ def compare_1d_heart_rate_zone_data(spark_session, heart_rate_zone='Cardio', dat
     :param schema: Database schema to target.
     :return:
     """
-    properties = {
-        "driver": "org.postgresql.Driver",
-        "user": os.environ['POSTGRES_USERNAME'],
-        "password": os.environ['POSTGRES_PASSWORD'],
-        "currentSchema": schema
-    }
+    df = get_df_from_db(spark_session, database=database, schema=schema, table='daily')
+    today_date = date.today()
+    yesterday_date = date.today() - timedelta(days=1)
+    try:
+        today_df, yesterday_df = df.where(
+            df.date == today_date), df.where(df.date == yesterday_date)
+        minutes_in_zone_today = today_df.where(df.type == heart_rate_zone).take(1)[0].minutes
+        minutes_in_zone_yesterday = yesterday_df.where(df.type == heart_rate_zone).take(1)[0].minutes
+    except IndexError:
+        get_heart_rate_zone_for_day('fitbit_test', today_date)
+        get_heart_rate_zone_for_day('fitbit_test', yesterday_date)
 
-    today_date_string = date.today()
-    yesterday_date_string = date.today() - timedelta(days=1)
-
-    df = spark_session.read.jdbc(
-        url=f"jdbc:postgresql://{os.environ['POSTGRES_IP']}/{database}",
-        properties=properties,
-        table='daily'
-    )
-
-    today_df, yesterday_df = df.where(df.date == today_date_string), df.where(df.date == yesterday_date_string)
-
-    minutes_in_zone_today = today_df.where(df.type == heart_rate_zone).take(1)[0].minutes
-    minutes_in_zone_yesterday = yesterday_df.where(df.type == heart_rate_zone).take(1)[0].minutes
+        today_df, yesterday_df = df.where(df.date == today_date), df.where(df.date == yesterday_date)
+        minutes_in_zone_today = today_df.where(df.type == heart_rate_zone).take(1)[0].minutes
+        minutes_in_zone_yesterday = yesterday_df.where(df.type == heart_rate_zone).take(1)[0].minutes
 
     print(
         f"You spent {minutes_in_zone_today} minutes in {heart_rate_zone} today, compared to " +
