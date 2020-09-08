@@ -1,7 +1,7 @@
 import decimal
 from datetime import date, timedelta
 
-from fitnick.base.base import get_authorized_client, create_db_engine
+from fitnick.base.base import create_db_engine, create_spark_session
 from fitnick.database.database import compare_1d_heart_rate_zone_data
 from fitnick.heart_rate.heart_rate import insert_heart_rate_time_series_data
 from fitnick.heart_rate.models import heart_daily_table
@@ -22,11 +22,18 @@ def test_compare_1d_heart_rate_zone_data():
             'database': 'fitbit_test'
         }
     )
+
+    spark = create_spark_session()
+
     heart_rate_zone, minutes_in_zone_today, minutes_in_zone_yesterday = compare_1d_heart_rate_zone_data(
-        database='fitbit_test', table=heart_daily_table)
+        spark_session=spark,
+        database='fitbit_test'
+    )
 
     assert (heart_rate_zone, type(minutes_in_zone_today), type(minutes_in_zone_yesterday)) == (
         'Cardio', decimal.Decimal, decimal.Decimal)
+
+    spark.stop()
 
 
 def test_check_for_duplicates():
