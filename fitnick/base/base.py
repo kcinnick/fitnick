@@ -3,6 +3,7 @@ from datetime import datetime
 import os
 
 import fitbit
+from pyspark.sql import SparkSession
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 
@@ -72,6 +73,12 @@ def create_db_engine(database, schema='heart'):
     )
     db_connection.connect().execute(f"ALTER USER postgres SET search_path to '{schema}';")
     return db_connection
+
+
+def create_spark_session():
+    spark = SparkSession.builder.getOrCreate()
+
+    return spark
 
 
 def insert_or_update(connection, payload, table):
