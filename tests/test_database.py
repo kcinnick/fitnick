@@ -10,7 +10,7 @@ from fitnick.heart_rate.heart_rate import insert_heart_rate_time_series_data
 from fitnick.heart_rate.models import heart_daily_table
 
 
-@pytest.mark.skipif(os.environ["TEST_LEVEL"] != "local", reason='Travis-CI issues')
+@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_compare_1d_heart_rate_zone_data():
     today = date.today()
     yesterday = today - timedelta(days=1)
@@ -38,7 +38,7 @@ def test_compare_1d_heart_rate_zone_data():
     spark.stop()
 
 
-@pytest.mark.skipif(os.environ["TEST_LEVEL"] != "local", reason='Travis-CI issues')
+@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_check_for_duplicates():
     """
     Useful for asserting that there aren't duplicates in the database, which *should* be avoided in the code.
