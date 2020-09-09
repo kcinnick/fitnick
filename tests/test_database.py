@@ -1,8 +1,7 @@
 import decimal
-import os
 from datetime import date, timedelta
 
-from fitnick.base.base import create_spark_session, create_db_engine, get_df_from_db
+from fitnick.base.base import create_db_engine
 from fitnick.database.database import compare_1d_heart_rate_zone_data
 from fitnick.heart_rate.heart_rate import insert_heart_rate_time_series_data
 from fitnick.heart_rate.models import heart_daily_table
