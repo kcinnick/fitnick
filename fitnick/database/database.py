@@ -1,5 +1,4 @@
-from datetime import timedelta
-from datetime import date
+from datetime import timedelta, datetime, date
 
 from fitnick.base.base import create_db_engine
 from fitnick.heart_rate.models import heart_daily_table
@@ -13,7 +12,7 @@ def build_sql_expression(table, conditions):
     return expression
 
 
-def compare_1d_heart_rate_zone_data(heart_rate_zone, database, table=heart_daily_table):
+def compare_1d_heart_rate_zone_data(heart_rate_zone, date_str, database, table=heart_daily_table):
     """
     Retrieves & compares today & yesterday's heart rate zone data for the zone specified.
     :param heart_rate_zone: str, Heart rate zone data desired. Options are Cardio, Peak, Fat Burn & Out of Range.
@@ -23,12 +22,12 @@ def compare_1d_heart_rate_zone_data(heart_rate_zone, database, table=heart_daily
     """
     db_connection = create_db_engine(database=database)
 
-    today_date_string = date.today()
-    yesterday_date_string = date.today() - timedelta(days=1)
+    search_datetime = datetime.strptime(date_str, '%Y-%m-%d')
+    yesterday_date_string = (search_datetime - timedelta(days=1)).date()
 
     with db_connection.connect() as connection:
         today_row = connection.execute(
-            table.select().where(table.columns.date == str(today_date_string)
+            table.select().where(table.columns.date == str(search_datetime.date())
                                  ).where(table.columns.type == heart_rate_zone)
         ).fetchone()
 
