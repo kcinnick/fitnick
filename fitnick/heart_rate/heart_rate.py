@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.orm.exc import FlushError
 from tqdm import tqdm
 
@@ -103,12 +103,11 @@ def insert_heart_rate_time_series_data(config):
     data = query_heart_rate_zone_time_series(authorized_client, config)
     parsed_rows = parse_response(data)
     db = create_db_engine(config['database'])
+    session = sessionmaker(bind=db)
+    session = session()
     for row in tqdm(parsed_rows):
-        session = sessionmaker()
-        session.configure(bind=db)
-        session = session()
-        upload_to_db(session, row=row)
-        session.close()
+        session.add(row)
+    session.commit()
 
     return parsed_rows
 
