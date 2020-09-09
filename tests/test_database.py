@@ -5,7 +5,7 @@ from datetime import date, timedelta
 import pytest
 
 from fitnick.base.base import create_spark_session, create_db_engine, get_df_from_db
-from fitnick.database.database import compare_1d_heart_rate_zone_data, get_minutes_for_heart_rate_zone
+from fitnick.database.database import compare_1d_heart_rate_zone_data
 from fitnick.heart_rate.heart_rate import insert_heart_rate_time_series_data
 from fitnick.heart_rate.models import heart_daily_table
 
