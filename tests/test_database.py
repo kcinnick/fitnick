@@ -1,15 +1,23 @@
 import decimal
 from datetime import date, timedelta
 
+from sqlalchemy.exc import IntegrityError
+
 from fitnick.base.base import create_db_engine
 from fitnick.database.database import compare_1d_heart_rate_zone_data
-from fitnick.heart_rate.heart_rate import insert_heart_rate_time_series_data
+from fitnick.heart_rate.heart_rate import insert_heart_rate_time_series_data, get_heart_rate_zone_for_day
 from fitnick.heart_rate.models import heart_daily_table
 
 
 def test_compare_1d_heart_rate_zone_data():
+    try:
+        get_heart_rate_zone_for_day(database='fitbit_test', date='2020-09-04')
+    except IntegrityError:
+        # for the purpose of this test, we don't care if the data is already there for 2020-09-04
+        pass
+
     heart_rate_zone, minutes_in_zone_today, minutes_in_zone_yesterday = compare_1d_heart_rate_zone_data(
-        database='fitbit_test', table=heart_daily_table, heart_rate_zone='Cardio')
+        database='fitbit_test', table=heart_daily_table, heart_rate_zone='Cardio', date_str='2020-09-05')
 
     assert (heart_rate_zone, type(minutes_in_zone_today), type(minutes_in_zone_yesterday)) == (
         'Cardio', decimal.Decimal, decimal.Decimal)
