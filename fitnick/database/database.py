@@ -23,32 +23,32 @@ def compare_1d_heart_rate_zone_data(heart_rate_zone, date_str, database, table=h
     db_connection = create_db_engine(database=database)
 
     search_datetime = datetime.strptime(date_str, '%Y-%m-%d')
-    yesterday_date_string = (search_datetime - timedelta(days=1)).date()
+    previous_date_string = (search_datetime - timedelta(days=1)).date()
 
     with db_connection.connect() as connection:
-        today_row = connection.execute(
+        day_row = connection.execute(
             table.select().where(table.columns.date == str(search_datetime.date())
                                  ).where(table.columns.type == heart_rate_zone)
         ).fetchone()
 
-        yesterday_row = connection.execute(
-            table.select().where(table.columns.date == str(yesterday_date_string)
+        previous_day_row = connection.execute(
+            table.select().where(table.columns.date == str(previous_date_string)
                                  ).where(table.columns.type == heart_rate_zone)
         ).fetchone()
 
     print(
-        f"You spent {today_row.minutes} minutes in {heart_rate_zone} today, compared to " +
-        f"{yesterday_row.minutes} yesterday."
+        f"You spent {day_row.minutes} minutes in {heart_rate_zone} today, compared to " +
+        f"{previous_day_row.minutes} yesterday."
     )
 
     if heart_rate_zone != 'Out of Range':
-        if today_row.minutes < yesterday_row.minutes:
-            print('Get moving! That\'s {} minutes less than yesterday!'.format(
-                int(yesterday_row.minutes - today_row.minutes)
-            ))
+        if day_row.minutes < previous_day_row.minutes:
+            print(
+                f'Get moving! That\'s {previous_day_row.minutes - day_row.minutes} minutes less than yesterday!'
+            )
         else:
             print('Good work! That\'s {} minutes more than yesterday!'.format(
-                int(today_row.minutes - yesterday_row.minutes)
+                int(day_row.minutes - previous_day_row.minutes)
             ))
 
-    return heart_rate_zone, today_row.minutes, yesterday_row.minutes
+    return heart_rate_zone, day_row.minutes, previous_day_row.minutes
