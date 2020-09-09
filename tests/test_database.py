@@ -8,15 +8,6 @@ from fitnick.heart_rate.models import heart_daily_table
 
 
 def test_compare_1d_heart_rate_zone_data():
-    today = date.today()
-    yesterday = today - timedelta(days=1)
-    insert_heart_rate_time_series_data(
-        config={
-            'base_date': today.strftime('%Y-%m-%d'),
-            'end_date': yesterday.strftime('%Y-%m-%d'),
-            'database': 'fitbit_test'
-        }
-    )
     heart_rate_zone, minutes_in_zone_today, minutes_in_zone_yesterday = compare_1d_heart_rate_zone_data(
         database='fitbit_test', table=heart_daily_table, heart_rate_zone='Cardio')
 
