@@ -1,15 +1,16 @@
 import decimal
+import os
 from datetime import date, timedelta
 
 import pytest
 
-from fitnick.base.base import create_spark_session, create_db_engine
-from fitnick.database.database import compare_1d_heart_rate_zone_data
+from fitnick.base.base import create_spark_session, create_db_engine, get_df_from_db
+from fitnick.database.database import compare_1d_heart_rate_zone_data, get_minutes_for_heart_rate_zone
 from fitnick.heart_rate.heart_rate import insert_heart_rate_time_series_data
 from fitnick.heart_rate.models import heart_daily_table
 
 
-@pytest.mark.skip(reason="test fails due to Travis CI issues, passes locally.")
+@pytest.mark.skipif(os.environ["TEST_LEVEL"] != "local", reason='Travis-CI issues')
 def test_compare_1d_heart_rate_zone_data():
     today = date.today()
     yesterday = today - timedelta(days=1)
@@ -37,7 +38,7 @@ def test_compare_1d_heart_rate_zone_data():
     spark.stop()
 
 
-@pytest.mark.skip(reason="test fails due to Travis CI issues, passes locally.")
+@pytest.mark.skipif(os.environ["TEST_LEVEL"] != "local", reason='Travis-CI issues')
 def test_check_for_duplicates():
     """
     Useful for asserting that there aren't duplicates in the database, which *should* be avoided in the code.
