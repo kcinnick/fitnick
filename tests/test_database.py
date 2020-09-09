@@ -1,6 +1,8 @@
 import decimal
-from datetime import date, timedelta
+import os
+from datetime import date
 
+import pytest
 from sqlalchemy.exc import IntegrityError
 
 from fitnick.base.base import create_db_engine
@@ -9,6 +11,7 @@ from fitnick.heart_rate.heart_rate import insert_heart_rate_time_series_data, ge
 from fitnick.heart_rate.models import heart_daily_table
 
 
+@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_compare_1d_heart_rate_zone_data():
     try:
         get_heart_rate_zone_for_day(database='fitbit_test', date='2020-09-04')
@@ -23,6 +26,7 @@ def test_compare_1d_heart_rate_zone_data():
         'Cardio', decimal.Decimal, decimal.Decimal)
 
 
+@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_check_for_duplicates():
     """
     Useful for asserting that there aren't duplicates in the database, which *should* be avoided in the code.
