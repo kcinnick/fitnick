@@ -29,12 +29,12 @@ def compare_1d_heart_rate_zone_data(heart_rate_zone, database, table=heart_daily
     with db_connection.connect() as connection:
         today_row = connection.execute(
             table.select().where(table.columns.date == str(today_date_string)
-                                             ).where(table.columns.type == heart_rate_zone)
+                                 ).where(table.columns.type == heart_rate_zone)
         ).fetchone()
 
         yesterday_row = connection.execute(
             table.select().where(table.columns.date == str(yesterday_date_string)
-                                             ).where(table.columns.type == heart_rate_zone)
+                                 ).where(table.columns.type == heart_rate_zone)
         ).fetchone()
 
     print(
