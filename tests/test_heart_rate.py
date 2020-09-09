@@ -3,6 +3,8 @@
 """Tests for the `heart_rate` functions in fitnick."""
 
 import datetime
+import os
+
 from decimal import Decimal
 
 import pytest
@@ -10,6 +12,8 @@ import pytest
 from fitnick.base.base import create_db_engine, get_authorized_client
 from fitnick.heart_rate.heart_rate import insert_heart_rate_time_series_data, query_heart_rate_zone_time_series, \
     parse_response
+
+from fitnick.heart_rate.models import heart_daily_table
 
 EXPECTED_ROWS = [
     ('Out of Range', Decimal('1267.00000'), datetime.date(2020, 9, 5), Decimal('2086.83184'), 68),
@@ -39,17 +43,16 @@ def purge(db_connection, delete_sql_string, select_sql_string):
     assert len(rows) == 0
 
 
-@pytest.mark.skip(reason="test fails due to Travis CI issues, passes locally.")
+@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_get_heart_rate_time_series_period():
     db_connection = create_db_engine(database='fitbit_test', schema='heart')
 
-    purge(db_connection, 'delete from heart.daily;', 'select * from heart.daily')
+    db_connection.execute(heart_daily_table.delete())
 
     insert_heart_rate_time_series_data(config={
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
-        'period': '1d'
-    })
+        'period': '1d'})
 
     rows = [row for row in db_connection.execute('select * from heart.daily')]
 

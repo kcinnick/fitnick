@@ -80,9 +80,9 @@ def create_db_engine(database, user='postgres', schema='heart'):
     db_connection = create_engine(
         f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
         f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
-        f":5432/{database}"
+        f":5432/{database}",
+        connect_args={'options': '-c search_path={}'.format(schema)}
     )
-    db_connection.connect().execute("ALTER USER {} SET search_path to '{}';".format(user, schema))
 
     return db_connection
 

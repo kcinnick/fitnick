@@ -1,41 +1,29 @@
 import decimal
 import os
-from datetime import date, timedelta
+from datetime import date
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
-from fitnick.base.base import create_spark_session, create_db_engine, get_df_from_db
+from fitnick.base.base import create_db_engine
 from fitnick.database.database import compare_1d_heart_rate_zone_data
-from fitnick.heart_rate.heart_rate import insert_heart_rate_time_series_data
+from fitnick.heart_rate.heart_rate import insert_heart_rate_time_series_data, get_heart_rate_zone_for_day
 from fitnick.heart_rate.models import heart_daily_table
 
 
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_compare_1d_heart_rate_zone_data():
-    today = date.today()
-    yesterday = today - timedelta(days=1)
-
-    insert_heart_rate_time_series_data(
-        config={
-            'end_date': today.strftime('%Y-%m-%d'),
-            'base_date': yesterday.strftime('%Y-%m-%d'),
-            'database': 'fitbit_test'
-        }
-    )
-
-    spark = create_spark_session()
+    try:
+        get_heart_rate_zone_for_day(database='fitbit_test', date='2020-09-04')
+    except IntegrityError:
+        # for the purpose of this test, we don't care if the data is already there for 2020-09-04
+        pass
 
     heart_rate_zone, minutes_in_zone_today, minutes_in_zone_yesterday = compare_1d_heart_rate_zone_data(
-        spark_session=spark,
-        database='fitbit_test',
-        schema='heart',
-        heart_rate_zone='Cardio'
-    )
+        database='fitbit_test', table=heart_daily_table, heart_rate_zone='Cardio', date_str='2020-09-05')
 
     assert (heart_rate_zone, type(minutes_in_zone_today), type(minutes_in_zone_yesterday)) == (
         'Cardio', decimal.Decimal, decimal.Decimal)
-
-    spark.stop()
 
 
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
