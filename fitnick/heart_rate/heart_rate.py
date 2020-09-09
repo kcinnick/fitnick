@@ -136,7 +136,7 @@ def get_heart_rate_zone_for_day(database, date):
 def backfill(database: str, period: int = 90):
     """
     Backfills a database from the current day.
-    Example: if run on 2020-09-06, the database will populate for 2020-06-08 - 2020-09-06
+    Example: if run on 2020-09-06 with period=90, the database will populate for 2020-06-08 - 2020-09-06
     :param database:
     :param period:
     :return:
