@@ -3,6 +3,7 @@
 """Tests for the `heart_rate` functions in fitnick."""
 
 import datetime
+import os
 from decimal import Decimal
 
 import pytest
@@ -39,7 +40,7 @@ def purge(db_connection, delete_sql_string, select_sql_string):
     assert len(rows) == 0
 
 
-@pytest.mark.skip(reason="test fails due to Travis CI issues, passes locally.")
+#@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_get_heart_rate_time_series_period():
     db_connection = create_db_engine(database='fitbit_test', schema='heart')
 
