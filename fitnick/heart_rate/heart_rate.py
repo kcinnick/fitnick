@@ -144,6 +144,8 @@ def backfill(database: str, period: int = 90):
     """
     backfill_date = date.today() - timedelta(days=period)
     for day in range(period):
-        get_heart_rate_zone_for_day(database, date=(backfill_date + timedelta(days=day)).strftime('%Y-%m-%d'))
+        backfill_day = (backfill_date + timedelta(days=day)).strftime('%Y-%m-%d')
+        print(f'Retrieving heart rate zone data for {backfill_day}.\n')
+        get_heart_rate_zone_for_day(database, date=backfill_day)
 
     return
