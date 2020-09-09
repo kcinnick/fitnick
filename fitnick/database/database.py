@@ -1,6 +1,6 @@
-import os
 from datetime import timedelta
 from datetime import date
+
 from fitnick.base.base import create_db_engine
 from fitnick.heart_rate.models import heart_daily_table
 
@@ -26,26 +26,30 @@ def compare_1d_heart_rate_zone_data(heart_rate_zone, database, table=heart_daily
     today_date_string = date.today()
     yesterday_date_string = date.today() - timedelta(days=1)
 
-    minutes_in_zone_today_expression = build_sql_expression(table, [today_date_string, heart_rate_zone])
-    minutes_in_zone_yesterday_expression = build_sql_expression(table, [yesterday_date_string, heart_rate_zone])
-
     with db_connection.connect() as connection:
-        minutes_in_zone_today = [i[1] for i in connection.execute(minutes_in_zone_today_expression)][0]
-        minutes_in_zone_yesterday = [i[1] for i in connection.execute(minutes_in_zone_yesterday_expression)][0]
+        today_row = connection.execute(
+            table.select().where(table.columns.date == str(today_date_string)
+                                             ).where(table.columns.type == heart_rate_zone)
+        ).fetchone()
+
+        yesterday_row = connection.execute(
+            table.select().where(table.columns.date == str(yesterday_date_string)
+                                             ).where(table.columns.type == heart_rate_zone)
+        ).fetchone()
 
     print(
-        f"You spent {minutes_in_zone_today} minutes in {heart_rate_zone} today, compared to " +
-        f"{minutes_in_zone_yesterday} yesterday."
+        f"You spent {today_row.minutes} minutes in {heart_rate_zone} today, compared to " +
+        f"{yesterday_row.minutes} yesterday."
     )
 
     if heart_rate_zone != 'Out of Range':
-        if minutes_in_zone_today < minutes_in_zone_yesterday:
+        if today_row.minutes < yesterday_row.minutes:
             print('Get moving! That\'s {} minutes less than yesterday!'.format(
-                int(minutes_in_zone_yesterday - minutes_in_zone_today)
+                int(yesterday_row.minutes - today_row.minutes)
             ))
         else:
             print('Good work! That\'s {} minutes more than yesterday!'.format(
-                int(minutes_in_zone_today - minutes_in_zone_yesterday)
+                int(today_row.minutes - yesterday_row.minutes)
             ))
 
-    return heart_rate_zone, minutes_in_zone_today, minutes_in_zone_yesterday
+    return heart_rate_zone, today_row.minutes, yesterday_row.minutes
