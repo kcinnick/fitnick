@@ -82,7 +82,7 @@ def create_db_engine(database, user='postgres', schema='heart'):
         f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
         f":5432/{database}"
     )
-    db_connection.connect().execute("ALTER USER {} SET search_path to '{}';".format(user, schema))
+    #db_connection.connect().execute("ALTER USER {} SET search_path to '{}';".format(user, schema))
 
     return db_connection
 
