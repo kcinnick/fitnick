@@ -9,9 +9,8 @@ from decimal import Decimal
 
 import pytest
 
-from fitnick.base.base import create_db_engine, get_authorized_client
-from fitnick.heart_rate.heart_rate import insert_heart_rate_time_series_data, query_heart_rate_zone_time_series, \
-    parse_response
+from fitnick.base.base import create_db_engine
+from fitnick.heart_rate.heart_rate import HeartRateZone
 
 from fitnick.heart_rate.models import heart_daily_table
 
@@ -49,10 +48,11 @@ def test_get_heart_rate_time_series_period():
 
     db_connection.execute(heart_daily_table.delete())
 
-    insert_heart_rate_time_series_data(config={
+    HeartRateZone(config={
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
-        'period': '1d'})
+        'period': '1d'}
+    ).insert_heart_rate_time_series_data()
 
     rows = [row for row in db_connection.execute('select * from heart.daily')]
 
@@ -60,20 +60,22 @@ def test_get_heart_rate_time_series_period():
 
 
 def test_query_heart_rate_zone_time_series():
-    data = query_heart_rate_zone_time_series(
-        authorized_client=get_authorized_client(),
-        config={
-            'database': 'fitbit_test',
-            'base_date': '2020-09-05',
-            'end_date': '2020-09-05'
-        }
-    )
+    data = HeartRateZone(config={
+        'database': 'fitbit_test',
+        'base_date': '2020-09-05',
+        'period': '1d'}
+    ).query_heart_rate_zone_time_series()
 
     assert data == EXPECTED_DATA
 
 
 def test_parse_response():
-    rows = parse_response(EXPECTED_DATA)
+    rows = HeartRateZone(config={
+        'database': 'fitbit_test',
+        'base_date': '2020-09-05',
+        'period': '1d'}
+    ).parse_response(EXPECTED_DATA)
+
     for index, row in enumerate(rows):
         assert row.type == EXPECTED_ROWS[index][0]
         assert row.minutes == EXPECTED_ROWS[index][1]
