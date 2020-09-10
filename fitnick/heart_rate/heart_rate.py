@@ -84,21 +84,7 @@ def parse_response(data):
     return rows
 
 
-def upload_to_db(session, row):
-    try:
-        session.flush()
-        session.add(row)
-        session.commit()
-    except IntegrityError:
-        update_old_rows(session, row)
-    except FlushError:
-        session.flush()
-        session.rollback()
-        session.add(row)
-        session.commit()
-
-
-def insert_heart_rate_time_series_data(config):
+def insert_heart_rate_time_series_data(config, raise_exception=False):
     authorized_client = get_authorized_client()
     data = query_heart_rate_zone_time_series(authorized_client, config)
     parsed_rows = parse_response(data)
@@ -107,7 +93,14 @@ def insert_heart_rate_time_series_data(config):
     session = session()
     for row in tqdm(parsed_rows):
         session.add(row)
-    session.commit()
+
+    try:
+        session.commit()
+    except IntegrityError as e:
+        if raise_exception:
+            raise e
+        else:
+            pass
 
     return parsed_rows
 
@@ -148,3 +141,5 @@ def backfill(database: str, period: int = 90):
         get_heart_rate_zone_for_day(database, date=backfill_day)
 
     return
+
+#backfill('fitbit', period=30)
