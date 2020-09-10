@@ -45,7 +45,7 @@ def purge(db_connection, delete_sql_string, select_sql_string):
 
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_get_heart_rate_time_series_period():
-    db_connection = create_db_engine(database='fitbit_test', schema='heart')
+    db_connection = create_db_engine(database='fitbit_test')
 
     db_connection.execute(heart_daily_table.delete())
 

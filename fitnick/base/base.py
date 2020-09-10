@@ -43,7 +43,6 @@ def refresh_authorized_client():
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Authorization': f"Basic {os.environ['FITBIT_AUTH_HEADER']}"}
         )
-        print(r.content)
         os.environ['FITBIT_ACCESS_KEY'] = r.json()['access_token']
         os.environ['FITBIT_REFRESH_TOKEN'] = r.json()['refresh_token']
         print(r.json())
@@ -76,12 +75,11 @@ def get_df_from_db(spark_session, database, schema, table):
     return df
 
 
-def create_db_engine(database, user='postgres', schema='heart'):
+def create_db_engine(database):
     db_connection = create_engine(
         f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
         f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
         f":5432/{database}",
-        connect_args={'options': '-c search_path={}'.format(schema)}
     )
 
     return db_connection
