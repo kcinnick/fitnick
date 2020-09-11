@@ -1,4 +1,5 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from fitnick.heart_rate.models import heart_daily_table
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, Session
@@ -48,21 +49,28 @@ class HeartRateZone:
             print('Dates must be formatted as YYYY-MM-DD. Exiting.')
             exit()
 
-        if self.config.get('end_date'):
-            data = self.authorized_client.time_series(
-                resource='activities/heart',
-                base_date=self.config['base_date'],
-                end_date=self.config['end_date']
-            )
-        else:
-            # we're assuming that if it's not a daterange search, it's a period search.
-            # period searches look backwards for a base_date - i.e., a base_date of
-            # 2020-09-02 will cover 2020-08-27 to 2020-09-02
-            data = self.authorized_client.time_series(
-                resource='activities/heart',
-                base_date=self.config['base_date'],
-                period=self.config['period']
-            )
+        base_date = datetime.strptime(self.config['base_date'], '%Y-%m-%d')
+        period = self.config.get('period')
+
+        if period:
+            if period == '1m':
+                self.config['end_date'] = base_date + timedelta(days=30)
+            if period == '30d':
+                self.config['end_date'] = base_date + timedelta(days=30)
+            elif period == '7d':
+                self.config['end_date'] = base_date + timedelta(days=7)
+            elif period == '1w':
+                self.config['end_date'] = base_date + timedelta(days=7)
+            elif period == '1d':
+                self.config['end_date'] = base_date + timedelta(days=1)
+            else:
+                raise NotImplementedError(f'Period {period} is not supported.\n')
+
+        data = self.authorized_client.time_series(
+            resource='activities/heart',
+            base_date=self.config['base_date'],
+            end_date=self.config['end_date']
+        )
 
         return data
 
@@ -87,22 +95,17 @@ class HeartRateZone:
 
         return rows
 
-    def insert_heart_rate_time_series_data(self, raise_exception=False):
+    def insert_heart_rate_time_series_data(self, connection):
         data = self.query_heart_rate_zone_time_series()
         parsed_rows = self.parse_response(data)
-        db = create_db_engine(self.config['database'])
-        session = sessionmaker(bind=db)
-        session = session()
         for row in tqdm(parsed_rows):
-            session.add(row)
-
-        try:
-            session.commit()
-        except IntegrityError as e:
-            if raise_exception:
-                raise e
-            else:
-                pass
+            ins = heart_daily_table.insert().values(
+                type=row.type, minutes=row.minutes, date=row.date,
+                calories=row.calories, resting_heart_rate=row.resting_heart_rate)
+            try:
+                connection.execute(ins)
+            except IntegrityError:
+                continue
 
         return parsed_rows
 
@@ -112,7 +115,8 @@ class HeartRateZone:
             'database': database,
             'period': '1d'}
         )
-        rows = self.insert_heart_rate_time_series_data()
+        db = create_db_engine(self.config['database'])
+        rows = self.insert_heart_rate_time_series_data(connection=db.engine.connect())
 
         return rows
 
@@ -123,12 +127,12 @@ class HeartRateZone:
             'database': database,
             'period': '1d'}
         )
-
-        rows = self.insert_heart_rate_time_series_data()
+        db = create_db_engine(self.config['database'])
+        rows = self.insert_heart_rate_time_series_data(connection=db.engine.connect())
 
         return rows
 
-    def backfill(self, database: str, period: int = 90):
+    def backfill(self, database, period: int = 90):
         """
         Backfills a database from the current day.
         Example: if run on 2020-09-06 with period=90, the database will populate for 2020-06-08 - 2020-09-06
@@ -136,10 +140,8 @@ class HeartRateZone:
         :param period:
         :return:
         """
-        backfill_date = date.today() - timedelta(days=period)
-        for day in range(period):
-            backfill_day = (backfill_date + timedelta(days=day)).strftime('%Y-%m-%d')
-            print(f'Retrieving heart rate zone data for {backfill_day}.\n')
-            self.get_heart_rate_zone_for_day(database, target_date=backfill_day)
+        self.config['base_date'] = (date.today() - timedelta(days=period)).strftime('%Y-%m-%d')
+        self.config['end_date'] = date.today().strftime('%Y-%m-%d')
+        db = create_db_engine(database)
 
-        return
+        self.insert_heart_rate_time_series_data(db.connect())
