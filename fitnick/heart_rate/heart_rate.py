@@ -2,33 +2,10 @@ from datetime import date, datetime, timedelta
 from fitnick.heart_rate.models import heart_daily_table
 
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.orm.exc import FlushError
 from tqdm import tqdm
 
 from fitnick.base.base import create_db_engine, get_authorized_client
 from fitnick.heart_rate.models import HeartDaily
-
-
-def rollback_and_commit(session, row):
-    session.rollback()
-    session.add(row)
-    session.commit()
-
-
-def update_old_rows(session, row):
-    session.rollback()
-    session.commit()
-    rows = session.query(HeartDaily).filter_by(date=row.date).filter_by(type=row.type).all()
-    for old_row in rows:
-        if old_row.minutes != row.minutes:  # if there's a discrepancy, delete the old row & add the new one
-            session.delete(old_row)
-            session.commit()
-            session.add(row)
-            session.commit()
-        else:
-            continue
-    return
 
 
 class HeartRateZone:
@@ -40,7 +17,6 @@ class HeartRateZone:
         """
         The two time-series based queries supported are documented here:
         https://dev.fitbit.com/build/reference/web-api/heart-rate/#get-heart-rate-time-series
-        :param config: dict containing the settings that determine what kind of time-series request gets made.
         :return:
         """
         try:
@@ -109,24 +85,21 @@ class HeartRateZone:
 
         return parsed_rows
 
-    def get_today_heart_rate_time_series_data(self, database):
-        self.config.update({
-            'base_date': date.today().strftime('%Y-%m-%d'),
-            'database': database,
-            'period': '1d'}
-        )
-        db = create_db_engine(self.config['database'])
-        rows = self.insert_heart_rate_time_series_data(connection=db.engine.connect())
-
-        return rows
-
-    def get_heart_rate_zone_for_day(self, database, target_date):
+    def get_heart_rate_zone_for_day(self, database, target_date='today'):
         # add a check to only get this if we don't already have it
-        self.config.update({
-            'base_date': target_date,
-            'database': database,
-            'period': '1d'}
-        )
+        if target_date != 'today':
+            self.config.update({
+                'base_date': target_date,
+                'database': database,
+                'period': '1d'}
+            )
+        else:
+            self.config.update({
+                'base_date': date.today().strftime('%Y-%m-%d'),
+                'database': database,
+                'period': '1d'}
+            )
+
         db = create_db_engine(self.config['database'])
         rows = self.insert_heart_rate_time_series_data(connection=db.engine.connect())
 
