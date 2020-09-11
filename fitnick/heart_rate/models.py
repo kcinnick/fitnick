@@ -25,6 +25,7 @@ heart_daily_table = Table(
     Column('minutes', Numeric(10, 5)),
     Column('date', Date, nullable=False),
     Column('calories', Numeric(10, 5)),
+    Column('resting_heart_rate', Integer()),
     UniqueConstraint('type', 'minutes', 'date', 'calories', name='daily_type_minutes_date_calories'),
     schema='heart',
 )

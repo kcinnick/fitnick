@@ -21,6 +21,17 @@ EXPECTED_ROWS = [
     ('Peak', Decimal('0.00000'), datetime.date(2020, 9, 5), Decimal('0.00000'), 68)
 ]
 
+EXPECTED_PERIOD_ROWS = [
+    ('Out of Range', Decimal('1267.00000'), datetime.date(2020, 9, 5), Decimal('2086.83184'), 68),
+    ('Fat Burn', Decimal('115.00000'), datetime.date(2020, 9, 5), Decimal('721.58848'), 68),
+    ('Cardio', Decimal('3.00000'), datetime.date(2020, 9, 5), Decimal('30.91792'), 68),
+    ('Peak', Decimal('0.00000'), datetime.date(2020, 9, 5), Decimal('0.00000'), 68),
+    ('Out of Range', Decimal('1210.00000'), datetime.date(2020, 9, 6), Decimal('1971.59232'), 69),
+    ('Fat Burn', Decimal('178.00000'), datetime.date(2020, 9, 6), Decimal('952.70632'), 69),
+    ('Cardio', Decimal('2.00000'), datetime.date(2020, 9, 6), Decimal('24.27440'), 69),
+    ('Peak', Decimal('0.00000'), datetime.date(2020, 9, 6), Decimal('0.00000'), 69)
+]
+
 EXPECTED_DATA = {'activities-heart': [
     {'dateTime': '2020-09-05', 'value': {'customHeartRateZones': [], 'heartRateZones': [
         {'caloriesOut': 2086.83184, 'max': 96, 'min': 30, 'minutes': 1267, 'name': 'Out of Range'},
@@ -52,18 +63,18 @@ def test_get_heart_rate_time_series_period():
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
         'period': '1d'}
-    ).insert_heart_rate_time_series_data()
+    ).insert_heart_rate_time_series_data(db_connection)
 
     rows = [row for row in db_connection.execute('select * from heart.daily')]
 
-    assert rows == EXPECTED_ROWS
+    assert rows == EXPECTED_PERIOD_ROWS
 
 
 def test_query_heart_rate_zone_time_series():
     data = HeartRateZone(config={
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
-        'period': '1d'}
+        'end_date': '2020-09-05'}
     ).query_heart_rate_zone_time_series()
 
     assert data == EXPECTED_DATA
@@ -73,7 +84,7 @@ def test_parse_response():
     rows = HeartRateZone(config={
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
-        'period': '1d'}
+        'period': '2020-09-05'}
     ).parse_response(EXPECTED_DATA)
 
     for index, row in enumerate(rows):

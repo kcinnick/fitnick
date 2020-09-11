@@ -37,8 +37,7 @@ def test_check_for_duplicates():
         'base_date': date.today().strftime('2020-09-02'),
         'period': '1d',
         'database': 'fitbit_test'}
-    ).insert_heart_rate_time_series_data(raise_exception=False)
-    # For the purpose of this test, we're not concerned with duplicates.
+    ).insert_heart_rate_time_series_data(connection=db_connection.connect())
 
     results = db_connection.execute(
         heart_daily_table.select().where(heart_daily_table.columns.date ==
