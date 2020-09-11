@@ -81,7 +81,15 @@ class HeartRateZone:
 
         return parsed_rows
 
-    def get_heart_rate_zone_for_day(self, database, target_date='today'):
+    def get_heart_rate_zone_for_day(self, database: str, target_date: str = 'today'):
+        """
+        Retrieves heart rate data for one day only.
+        This method should not be used to add batch data - i.e., iterating
+        through a list of dates is likely to trigger rate limit errors.
+        :param database: Database to insert into.
+        :param target_date: Date to retrieve heart rate zone data for.
+        :return:
+        """
         # add a check to only get this if we don't already have it
         if target_date != 'today':
             self.config.update({
@@ -101,12 +109,12 @@ class HeartRateZone:
 
         return rows
 
-    def backfill(self, database, period: int = 90):
+    def backfill(self, database: str, period: int = 90):
         """
         Backfills a database from the current day.
         Example: if run on 2020-09-06 with period=90, the database will populate for 2020-06-08 - 2020-09-06
-        :param database:
-        :param period:
+        :param database: Name of database to insert into. Options are fitbit & fitbit_test
+        :param period: Number of days to look backward.
         :return:
         """
         self.config['base_date'] = (date.today() - timedelta(days=period)).strftime('%Y-%m-%d')
