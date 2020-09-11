@@ -89,20 +89,3 @@ def create_spark_session():
     spark = SparkSession.builder.getOrCreate()
 
     return spark
-
-
-def insert_or_update(connection, payload, table):
-    try:
-        connection.execute(
-            table.insert(),
-            payload
-        )
-    except IntegrityError:
-        try:
-            connection.execute(
-                table.update(),
-                payload
-            )
-        except IntegrityError:
-            print('Data already exists in DB. Continuing.\n')
-            return

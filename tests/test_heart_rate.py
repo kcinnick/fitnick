@@ -26,9 +26,9 @@ EXPECTED_PERIOD_ROWS = [
     ('Fat Burn', Decimal('115.00000'), datetime.date(2020, 9, 5), Decimal('721.58848'), 68),
     ('Cardio', Decimal('3.00000'), datetime.date(2020, 9, 5), Decimal('30.91792'), 68),
     ('Peak', Decimal('0.00000'), datetime.date(2020, 9, 5), Decimal('0.00000'), 68),
-    ('Out of Range', Decimal('1210.00000'), datetime.date(2020, 9, 6), Decimal('1971.59232'), 69),
-    ('Fat Burn', Decimal('178.00000'), datetime.date(2020, 9, 6), Decimal('952.70632'), 69),
-    ('Cardio', Decimal('2.00000'), datetime.date(2020, 9, 6), Decimal('24.27440'), 69),
+    ('Out of Range', Decimal('1210.00000'), datetime.date(2020, 9, 6), Decimal('1967.73432'), 69),
+    ('Fat Burn', Decimal('178.00000'), datetime.date(2020, 9, 6), Decimal('950.84207'), 69),
+    ('Cardio', Decimal('2.00000'), datetime.date(2020, 9, 6), Decimal('24.22690'), 69),
     ('Peak', Decimal('0.00000'), datetime.date(2020, 9, 6), Decimal('0.00000'), 69)
 ]
 
@@ -39,18 +39,6 @@ EXPECTED_DATA = {'activities-heart': [
         {'caloriesOut': 30.91792, 'max': 163, 'min': 134, 'minutes': 3, 'name': 'Cardio'},
         {'caloriesOut': 0, 'max': 220, 'min': 163, 'minutes': 0, 'name': 'Peak'}
     ], 'restingHeartRate': 68}}]}
-
-
-def purge(db_connection, delete_sql_string, select_sql_string):
-    """
-    Deletes & asserts that records from tables were deleted to test certain functions are working.
-    :return:
-    """
-    # deleting the test rows
-    db_connection.execute(delete_sql_string)
-
-    rows = [i for i in db_connection.execute(select_sql_string)]
-    assert len(rows) == 0
 
 
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
@@ -65,7 +53,7 @@ def test_get_heart_rate_time_series_period():
         'period': '1d'}
     ).insert_heart_rate_time_series_data(db_connection)
 
-    rows = [row for row in db_connection.execute('select * from heart.daily')]
+    rows = [row for row in db_connection.execute(heart_daily_table.select())]
 
     assert rows == EXPECTED_PERIOD_ROWS
 

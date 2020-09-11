@@ -8,7 +8,8 @@ CREATE TABLE heart.daily
     minutes numeric(10,5),
     date date NOT NULL,
     calories numeric(10,5),
-	UNIQUE (type, date)
+    resting_heart_rate integer,
+    CONSTRAINT daily_type_date_key UNIQUE (type, date)
 )
 
 TABLESPACE pg_default;
