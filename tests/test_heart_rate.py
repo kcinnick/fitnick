@@ -26,9 +26,9 @@ EXPECTED_PERIOD_ROWS = [
     ('Fat Burn', Decimal('115.00000'), datetime.date(2020, 9, 5), Decimal('721.58848'), 68),
     ('Cardio', Decimal('3.00000'), datetime.date(2020, 9, 5), Decimal('30.91792'), 68),
     ('Peak', Decimal('0.00000'), datetime.date(2020, 9, 5), Decimal('0.00000'), 68),
-    ('Out of Range', Decimal('1210.00000'), datetime.date(2020, 9, 6), Decimal('1971.59232'), 69),
-    ('Fat Burn', Decimal('178.00000'), datetime.date(2020, 9, 6), Decimal('952.70632'), 69),
-    ('Cardio', Decimal('2.00000'), datetime.date(2020, 9, 6), Decimal('24.27440'), 69),
+    ('Out of Range', Decimal('1210.00000'), datetime.date(2020, 9, 6), Decimal('1967.73432'), 69),
+    ('Fat Burn', Decimal('178.00000'), datetime.date(2020, 9, 6), Decimal('950.84207'), 69),
+    ('Cardio', Decimal('2.00000'), datetime.date(2020, 9, 6), Decimal('24.22690'), 69),
     ('Peak', Decimal('0.00000'), datetime.date(2020, 9, 6), Decimal('0.00000'), 69)
 ]
 
