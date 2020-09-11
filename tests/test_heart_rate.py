@@ -41,18 +41,6 @@ EXPECTED_DATA = {'activities-heart': [
     ], 'restingHeartRate': 68}}]}
 
 
-def purge(db_connection, delete_sql_string, select_sql_string):
-    """
-    Deletes & asserts that records from tables were deleted to test certain functions are working.
-    :return:
-    """
-    # deleting the test rows
-    db_connection.execute(delete_sql_string)
-
-    rows = [i for i in db_connection.execute(select_sql_string)]
-    assert len(rows) == 0
-
-
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_get_heart_rate_time_series_period():
     db_connection = create_db_engine(database='fitbit_test')
@@ -65,7 +53,7 @@ def test_get_heart_rate_time_series_period():
         'period': '1d'}
     ).insert_heart_rate_time_series_data(db_connection)
 
-    rows = [row for row in db_connection.execute('select * from heart.daily')]
+    rows = [row for row in db_connection.execute(heart_daily_table.select())]
 
     assert rows == EXPECTED_PERIOD_ROWS
 
