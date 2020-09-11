@@ -68,14 +68,19 @@ class HeartRateZone:
         return rows
 
     def insert_heart_rate_time_series_data(self, connection):
+        """
+        Extracts, transforms & loads the data specified by the self.config dict.
+        :param connection: SQLAlchemy database connection.
+        :return:
+        """
         data = self.query_heart_rate_zone_time_series()
         parsed_rows = self.parse_response(data)
         for row in tqdm(parsed_rows):
-            ins = heart_daily_table.insert().values(
+            insert_cmd = heart_daily_table.insert().values(
                 type=row.type, minutes=row.minutes, date=row.date,
                 calories=row.calories, resting_heart_rate=row.resting_heart_rate)
             try:
-                connection.execute(ins)
+                connection.execute(insert_cmd)
             except IntegrityError:
                 continue
 
