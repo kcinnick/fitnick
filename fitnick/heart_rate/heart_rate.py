@@ -29,13 +29,9 @@ class HeartRateZone:
         period = self.config.get('period')
 
         if period:
-            if period == '1m':
+            if period in ['1m', '30d']:
                 self.config['end_date'] = base_date + timedelta(days=30)
-            if period == '30d':
-                self.config['end_date'] = base_date + timedelta(days=30)
-            elif period == '7d':
-                self.config['end_date'] = base_date + timedelta(days=7)
-            elif period == '1w':
+            elif period in ['7d', '1w']:
                 self.config['end_date'] = base_date + timedelta(days=7)
             elif period == '1d':
                 self.config['end_date'] = base_date + timedelta(days=1)
