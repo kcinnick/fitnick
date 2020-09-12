@@ -4,7 +4,8 @@ from fitnick.heart_rate.models import heart_daily_table
 from sqlalchemy.exc import IntegrityError
 from tqdm import tqdm
 
-from fitnick.base.base import create_db_engine, get_authorized_client
+from fitnick.base.base import get_authorized_client
+from fitnick.database.database import Database
 from fitnick.heart_rate.models import HeartDaily
 
 
@@ -67,10 +68,11 @@ class HeartRateZone:
 
         return rows
 
-    def insert_heart_rate_time_series_data(self, connection):
+    def insert_heart_rate_time_series_data(self, connection, close=False):
         """
         Extracts, transforms & loads the data specified by the self.config dict.
         :param connection: SQLAlchemy database connection.
+        :param close: bool, determines whether or not to close the db connection after inserting.
         :return:
         """
         data = self.query_heart_rate_zone_time_series()
@@ -83,6 +85,8 @@ class HeartRateZone:
                 connection.execute(insert_cmd)
             except IntegrityError:
                 continue
+        if close:
+            connection.close()
 
         return parsed_rows
 
@@ -109,8 +113,10 @@ class HeartRateZone:
                 'period': '1d'}
             )
 
-        db = create_db_engine(self.config['database'])
-        rows = self.insert_heart_rate_time_series_data(connection=db.engine.connect())
+        db = Database(self.config['database'])
+        connection = db.engine.connect()
+        rows = self.insert_heart_rate_time_series_data(connection=connection)
+        connection.close()
 
         return rows
 
@@ -124,6 +130,8 @@ class HeartRateZone:
         """
         self.config['base_date'] = (date.today() - timedelta(days=period)).strftime('%Y-%m-%d')
         self.config['end_date'] = date.today().strftime('%Y-%m-%d')
-        db = create_db_engine(database)
 
-        self.insert_heart_rate_time_series_data(db.connect())
+        db = Database(database)
+        connection = db.engine.connect()
+        self.insert_heart_rate_time_series_data(connection)
+        connection.close()
