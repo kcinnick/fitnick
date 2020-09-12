@@ -9,9 +9,8 @@ from decimal import Decimal
 
 import pytest
 
-from fitnick.base.base import create_db_engine
+from fitnick.database.database import Database
 from fitnick.heart_rate.heart_rate import HeartRateZone
-
 from fitnick.heart_rate.models import heart_daily_table
 
 EXPECTED_ROWS = [
@@ -43,17 +42,19 @@ EXPECTED_DATA = {'activities-heart': [
 
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_get_heart_rate_time_series_period():
-    db_connection = create_db_engine(database='fitbit_test')
+    database = Database('fitbit_test')
+    connection = database.engine.connect()
 
-    db_connection.execute(heart_daily_table.delete())
+    connection.execute(heart_daily_table.delete())
 
     HeartRateZone(config={
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
         'period': '1d'}
-    ).insert_heart_rate_time_series_data(db_connection)
+    ).insert_heart_rate_time_series_data(connection, close=False)
 
-    rows = [row for row in db_connection.execute(heart_daily_table.select())]
+    rows = [row for row in connection.execute(heart_daily_table.select())]
+    connection.close()
 
     assert rows == EXPECTED_PERIOD_ROWS
 
