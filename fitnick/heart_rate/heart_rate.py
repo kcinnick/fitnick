@@ -1,7 +1,6 @@
 from datetime import date, datetime, timedelta
 from fitnick.heart_rate.models import heart_daily_table
 
-from sqlalchemy.exc import IntegrityError
 from tqdm import tqdm
 
 from fitnick.base.base import get_authorized_client
@@ -68,7 +67,7 @@ class HeartRateZone:
 
         return rows
 
-    def insert_heart_rate_time_series_data(self, connection, close=False):
+    def insert_heart_rate_time_series_data(self, close=False):
         """
         Extracts, transforms & loads the data specified by the self.config dict.
         :param connection: SQLAlchemy database connection.
@@ -77,14 +76,19 @@ class HeartRateZone:
         """
         data = self.query_heart_rate_zone_time_series()
         parsed_rows = self.parse_response(data)
+        from sqlalchemy.dialects import postgresql
+        db = Database(self.config['database'])
+        connection = db.engine.connect()
         for row in tqdm(parsed_rows):
-            insert_cmd = heart_daily_table.insert().values(
+            insert_stmt = postgresql.insert(heart_daily_table, bind=db).values(
                 type=row.type, minutes=row.minutes, date=row.date,
                 calories=row.calories, resting_heart_rate=row.resting_heart_rate)
-            try:
-                connection.execute(insert_cmd)
-            except IntegrityError:
-                continue
+            upsert_stmt = insert_stmt.on_conflict_do_update(
+                constraint='daily_type_date_key',
+                set_={'minutes': row.minutes, 'calories': row.calories}
+            )
+            connection.execute(upsert_stmt)
+
         if close:
             connection.close()
 
@@ -99,7 +103,6 @@ class HeartRateZone:
         :param target_date: Date to retrieve heart rate zone data for.
         :return:
         """
-        # add a check to only get this if we don't already have it
         if target_date != 'today':
             self.config.update({
                 'base_date': target_date,
@@ -115,7 +118,7 @@ class HeartRateZone:
 
         db = Database(self.config['database'])
         connection = db.engine.connect()
-        rows = self.insert_heart_rate_time_series_data(connection=connection)
+        rows = self.insert_heart_rate_time_series_data()
         connection.close()
 
         return rows
