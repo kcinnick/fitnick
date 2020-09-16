@@ -70,7 +70,6 @@ class HeartRateZone:
     def insert_heart_rate_time_series_data(self, close=False):
         """
         Extracts, transforms & loads the data specified by the self.config dict.
-        :param connection: SQLAlchemy database connection.
         :param close: bool, determines whether or not to close the db connection after inserting.
         :return:
         """
