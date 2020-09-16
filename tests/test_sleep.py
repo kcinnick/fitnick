@@ -1,4 +1,7 @@
 import datetime
+import os
+
+import pytest
 
 from fitnick.database.database import Database
 from fitnick.sleep.sleep import Sleep, sleep_summary_table, parse_summary_response
@@ -82,7 +85,7 @@ EXPECTED_API_RESPONSE = {
 
 #  I don't like how the above looks, but it's the best option vs. hundreds of lines just for test data.
 
-
+@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_query_sleep_data():
     database = Database('fitbit_test')
     connection = database.engine.connect()
