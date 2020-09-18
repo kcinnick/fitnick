@@ -43,7 +43,6 @@ class Database:
     def get_df_from_db(self, database, schema, table):
         """
         Retrieves a PySpark dataframe containing all of the data in the specified table.
-        :param spark_session: Existing SparkSession object
         :param database: str, name of database
         :param schema: str, name of schema
         :param table: str, name of table

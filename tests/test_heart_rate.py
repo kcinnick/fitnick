@@ -73,7 +73,7 @@ def test_parse_response():
     rows = HeartRateZone(config={
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
-        'period': '2020-09-05'}
+        'period': '1d'}
     ).parse_response(EXPECTED_DATA)
 
     for index, row in enumerate(rows):
