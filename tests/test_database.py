@@ -36,15 +36,13 @@ def test_check_for_duplicates():
     connection = database.engine.connect()
 
     HeartRateZone(config={
-        'base_date': date.today().strftime('2020-09-02'),
+        'base_date': '2020-09-02',
         'period': '1d',
         'database': 'fitbit_test'}
     ).insert_heart_rate_time_series_data(close=False)
 
     results = connection.execute(
-        heart_daily_table.select().where(heart_daily_table.columns.date ==
-                                         date.today().strftime('2020-09-02'))
-    )
+        heart_daily_table.select().where(heart_daily_table.columns.date == '2020-09-02'))
 
     assert len([result for result in results]) == 4
     connection.close()
