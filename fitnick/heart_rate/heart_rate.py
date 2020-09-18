@@ -64,6 +64,14 @@ class HeartRateZone:
                     resting_heart_rate=resting_heart_rate
                 )
                 rows.append(row)
+            row = HeartDaily(
+                type='Total',
+                minutes=sum([i.minutes for i in rows]),
+                date=date,
+                calories=sum([i.calories for i in rows]),
+                resting_heart_rate=resting_heart_rate
+            )
+            rows.append(row)
 
         return rows
 
@@ -73,6 +81,7 @@ class HeartRateZone:
         :param close: bool, determines whether or not to close the db connection after inserting.
         :return:
         """
+
         data = self.query_heart_rate_zone_time_series()
         parsed_rows = self.parse_response(data)
         from sqlalchemy.dialects import postgresql
@@ -93,7 +102,7 @@ class HeartRateZone:
 
         return parsed_rows
 
-    def get_heart_rate_zone_for_day(self, database: str, target_date: str = 'today'):
+    def get_heart_rate_zone_for_day(self, database: str = 'fitbit', target_date: str = 'today'):
         """
         Retrieves heart rate data for one day only.
         This method should not be used to add batch data - i.e., iterating
