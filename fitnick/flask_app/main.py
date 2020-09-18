@@ -2,6 +2,7 @@ from datetime import date
 
 from flask import Flask, make_response, render_template, request
 from fitnick.heart_rate.heart_rate import HeartRateZone, Database
+from fitnick.heart_rate.models import heart_daily_table
 
 app = Flask(__name__)
 
@@ -29,8 +30,7 @@ def get_heart_rate_zone_today():
         )
     else:
         heart_rate_zone.config = {'base_date': date.today(), 'period': '1d'}
-        rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
-        rows = [row for row in rows if row.date == str(date.today())]
+        rows = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
         return render_template(
             "index.html", value='Here\'s the latest heart rate data in the database.',
             rows=[row for row in rows if row.date == str(date.today())]
