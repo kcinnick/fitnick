@@ -64,14 +64,6 @@ class HeartRateZone:
                     resting_heart_rate=resting_heart_rate
                 )
                 rows.append(row)
-            row = HeartDaily(
-                type='Total',
-                minutes=sum([i.minutes for i in rows]),
-                date=date,
-                calories=sum([i.calories for i in rows]),
-                resting_heart_rate=resting_heart_rate
-            )
-            rows.append(row)
 
         return rows
 
