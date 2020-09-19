@@ -99,8 +99,8 @@ class HeartRateZone:
         if target_date != 'today':
             self.config.update({
                 'base_date': target_date,
-                'database': database,
-                'period': '1d'}
+                'end_date': target_date,
+                'database': database}
             )
         else:
             today = date.today().strftime('%Y-%m-%d')
@@ -117,7 +117,7 @@ class HeartRateZone:
 
         return rows
 
-    def backfill(self, database: str, period: int = 90):
+    def backfill(self, period: int = 90):
         """
         Backfills a database from the current day.
         Example: if run on 2020-09-06 with period=90, the database will populate for 2020-06-08 - 2020-09-06
@@ -128,7 +128,4 @@ class HeartRateZone:
         self.config['base_date'] = (date.today() - timedelta(days=period)).strftime('%Y-%m-%d')
         self.config['end_date'] = date.today().strftime('%Y-%m-%d')
 
-        db = Database(database)
-        connection = db.engine.connect()
-        self.insert_heart_rate_time_series_data(connection)
-        connection.close()
+        self.insert_heart_rate_time_series_data()
