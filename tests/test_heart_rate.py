@@ -51,7 +51,7 @@ def test_get_heart_rate_time_series_period():
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
         'period': '1d'}
-    ).insert_heart_rate_time_series_data(connection)
+    ).insert_heart_rate_time_series_data()
 
     rows = [row for row in connection.execute(heart_daily_table.select())]
     connection.close()

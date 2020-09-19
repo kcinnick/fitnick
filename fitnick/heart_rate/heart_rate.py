@@ -1,7 +1,6 @@
 from datetime import date, datetime, timedelta
-from fitnick.heart_rate.models import heart_daily_table
 
-from tqdm import tqdm
+from sqlalchemy.orm import sessionmaker
 
 from fitnick.base.base import get_authorized_client
 from fitnick.database.database import Database
@@ -67,30 +66,24 @@ class HeartRateZone:
 
         return rows
 
-    def insert_heart_rate_time_series_data(self, close=False):
+    def insert_heart_rate_time_series_data(self):
         """
         Extracts, transforms & loads the data specified by the self.config dict.
-        :param close: bool, determines whether or not to close the db connection after inserting.
         :return:
         """
 
         data = self.query_heart_rate_zone_time_series()
         parsed_rows = self.parse_response(data)
-        from sqlalchemy.dialects import postgresql
         db = Database(self.config['database'])
-        connection = db.engine.connect()
-        for row in tqdm(parsed_rows):
-            insert_stmt = postgresql.insert(heart_daily_table, bind=db).values(
-                type=row.type, minutes=row.minutes, date=row.date,
-                calories=row.calories, resting_heart_rate=row.resting_heart_rate)
-            upsert_stmt = insert_stmt.on_conflict_do_update(
-                constraint='daily_type_date_key',
-                set_={'minutes': row.minutes, 'calories': row.calories}
-            )
-            connection.execute(upsert_stmt)
 
-        if close:
-            connection.close()
+        # create a session connected to the database in config
+        session = sessionmaker(bind=db.engine)()
+
+        for row in parsed_rows:
+            session.add(row)
+
+        session.commit()
+        session.close()
 
         return parsed_rows
 
@@ -106,14 +99,15 @@ class HeartRateZone:
         if target_date != 'today':
             self.config.update({
                 'base_date': target_date,
-                'database': database,
-                'period': '1d'}
+                'end_date': target_date,
+                'database': database}
             )
         else:
+            today = date.today().strftime('%Y-%m-%d')
             self.config.update({
-                'base_date': date.today().strftime('%Y-%m-%d'),
-                'database': database,
-                'period': '1d'}
+                'base_date': today,
+                'end_date': today,
+                'database': database}
             )
 
         db = Database(self.config['database'])
@@ -123,7 +117,7 @@ class HeartRateZone:
 
         return rows
 
-    def backfill(self, database: str, period: int = 90):
+    def backfill(self, period: int = 90):
         """
         Backfills a database from the current day.
         Example: if run on 2020-09-06 with period=90, the database will populate for 2020-06-08 - 2020-09-06
@@ -134,7 +128,4 @@ class HeartRateZone:
         self.config['base_date'] = (date.today() - timedelta(days=period)).strftime('%Y-%m-%d')
         self.config['end_date'] = date.today().strftime('%Y-%m-%d')
 
-        db = Database(database)
-        connection = db.engine.connect()
-        self.insert_heart_rate_time_series_data(connection)
-        connection.close()
+        self.insert_heart_rate_time_series_data()

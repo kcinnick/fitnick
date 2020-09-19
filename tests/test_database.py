@@ -21,7 +21,7 @@ def test_compare_1d_heart_rate_zone_data():
         pass
 
     heart_rate_zone, minutes_in_zone_today, minutes_in_zone_yesterday = database.compare_1d_heart_rate_zone_data(
-        database='fitbit_test', table=heart_daily_table, heart_rate_zone='Cardio', date_str='2020-09-05')
+        table=heart_daily_table, heart_rate_zone='Cardio', date_str='2020-09-05')
 
     assert (heart_rate_zone, type(minutes_in_zone_today), type(minutes_in_zone_yesterday)) == (
         'Cardio', decimal.Decimal, decimal.Decimal)
@@ -39,7 +39,7 @@ def test_check_for_duplicates():
         'base_date': '2020-09-02',
         'period': '1d',
         'database': 'fitbit_test'}
-    ).insert_heart_rate_time_series_data(close=False)
+    ).insert_heart_rate_time_series_data()
 
     results = connection.execute(
         heart_daily_table.select().where(heart_daily_table.columns.date == '2020-09-02'))
