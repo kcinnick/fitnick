@@ -63,12 +63,11 @@ class Database:
 
         return df
 
-    def compare_1d_heart_rate_zone_data(self, heart_rate_zone, date_str, database, table=heart_daily_table):
+    def compare_1d_heart_rate_zone_data(self, heart_rate_zone, date_str, table=heart_daily_table):
         """
         Retrieves & compares today & yesterday's heart rate zone data for the zone specified.
         :param heart_rate_zone: str, Heart rate zone data desired. Options are Cardio, Peak, Fat Burn & Out of Range.
         :param date_str: str, representing the date to search for.
-        :param database: str, Database to use for data comparison. Options are fitbit or fitbit-test.
         :param table: sqlalchemy.Table object to retrieve data from.
         :return:
         """
