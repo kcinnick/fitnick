@@ -22,12 +22,12 @@ EXPECTED_ROWS = [
 
 EXPECTED_PERIOD_ROWS = [
     ('Out of Range', Decimal('1267.00000'), datetime.date(2020, 9, 5), Decimal('2086.83184'), 68),
-    ('Fat Burn', Decimal('115.00000'), datetime.date(2020, 9, 5), Decimal('721.58848'), 68),
     ('Cardio', Decimal('3.00000'), datetime.date(2020, 9, 5), Decimal('30.91792'), 68),
-    ('Peak', Decimal('0.00000'), datetime.date(2020, 9, 5), Decimal('0.00000'), 68),
     ('Out of Range', Decimal('1210.00000'), datetime.date(2020, 9, 6), Decimal('1967.73432'), 69),
-    ('Fat Burn', Decimal('178.00000'), datetime.date(2020, 9, 6), Decimal('950.84207'), 69),
     ('Cardio', Decimal('2.00000'), datetime.date(2020, 9, 6), Decimal('24.22690'), 69),
+    ('Fat Burn', Decimal('115.00000'), datetime.date(2020, 9, 5), Decimal('721.58848'), 68),
+    ('Peak', Decimal('0.00000'), datetime.date(2020, 9, 5), Decimal('0.00000'), 68),
+    ('Fat Burn', Decimal('178.00000'), datetime.date(2020, 9, 6), Decimal('950.84207'), 69),
     ('Peak', Decimal('0.00000'), datetime.date(2020, 9, 6), Decimal('0.00000'), 69)
 ]
 
@@ -56,7 +56,7 @@ def test_get_heart_rate_time_series_period():
     rows = [row for row in connection.execute(heart_daily_table.select())]
     connection.close()
 
-    assert rows == EXPECTED_PERIOD_ROWS
+    assert sorted(rows) == sorted(EXPECTED_PERIOD_ROWS)
 
 
 def test_query_heart_rate_zone_time_series():

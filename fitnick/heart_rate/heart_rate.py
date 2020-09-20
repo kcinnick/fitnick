@@ -1,10 +1,40 @@
 from datetime import date, datetime, timedelta
 
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.exc import FlushError
+
+from tqdm import tqdm
 
 from fitnick.base.base import get_authorized_client
 from fitnick.database.database import Database
-from fitnick.heart_rate.models import HeartDaily
+from fitnick.heart_rate.models import HeartDaily, heart_daily_table
+
+
+def handle_integrity_error(session, row):
+    session.rollback()
+    insert_statement = insert(heart_daily_table).values(
+        type=row.type,
+        minutes=row.minutes,
+        date=row.date,
+        calories=row.calories,
+        resting_heart_rate=row.resting_heart_rate)
+
+    update_statement = insert_statement.on_conflict_do_update(
+        constraint='daily_type_date_key',
+        set_={
+            'type': row.type,
+            'minutes': row.minutes,
+            'date': row.date,
+            'calories': row.calories,
+            'resting_heart_rate': row.resting_heart_rate
+        })
+
+    session.execute(update_statement)
+    session.commit()
+
+    return session
 
 
 class HeartRateZone:
@@ -79,10 +109,22 @@ class HeartRateZone:
         # create a session connected to the database in config
         session = sessionmaker(bind=db.engine)()
 
-        for row in parsed_rows:
-            session.add(row)
+        for row in tqdm(parsed_rows):
+            try:
+                session.add(row)
+                session.commit()
+            except FlushError:
+                session.expunge_all()
+                session.rollback()
+                session.add(row)
+                try:
+                    session.commit()
+                except IntegrityError:
+                    session = handle_integrity_error(session=session, row=row)
+                    continue
+            except IntegrityError:
+                session = handle_integrity_error(session, row)
 
-        session.commit()
         session.close()
 
         return parsed_rows
@@ -110,11 +152,7 @@ class HeartRateZone:
                 'database': database}
             )
 
-        db = Database(self.config['database'])
-        connection = db.engine.connect()
         rows = self.insert_heart_rate_time_series_data()
-        connection.close()
-
         return rows
 
     def backfill(self, period: int = 90):
