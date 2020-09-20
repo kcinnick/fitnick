@@ -12,6 +12,31 @@ from fitnick.database.database import Database
 from fitnick.heart_rate.models import HeartDaily, heart_daily_table
 
 
+def handle_integrity_error(session, row):
+    session.rollback()
+    insert_statement = insert(heart_daily_table).values(
+        type=row.type,
+        minutes=row.minutes,
+        date=row.date,
+        calories=row.calories,
+        resting_heart_rate=row.resting_heart_rate)
+
+    update_statement = insert_statement.on_conflict_do_update(
+        constraint='daily_type_date_key',
+        set_={
+            'type': row.type,
+            'minutes': row.minutes,
+            'date': row.date,
+            'calories': row.calories,
+            'resting_heart_rate': row.resting_heart_rate
+        })
+
+    session.execute(update_statement)
+    session.commit()
+
+    return session
+
+
 class HeartRateZone:
     def __init__(self, config):
         self.authorized_client = get_authorized_client()
@@ -95,46 +120,11 @@ class HeartRateZone:
                 try:
                     session.commit()
                 except IntegrityError:
-                    session.rollback()
-                    insert_stmt = insert(heart_daily_table).values(
-                        type=row.type,
-                        minutes=row.minutes,
-                        date=row.date,
-                        calories=row.calories,
-                        resting_heart_rate=row.resting_heart_rate)
-                    do_update_stmt = insert_stmt.on_conflict_do_update(
-                        constraint='daily_type_date_key',
-                        set_={
-                            'type': row.type,
-                            'minutes': row.minutes,
-                            'date': row.date,
-                            'calories': row.calories,
-                            'resting_heart_rate': row.resting_heart_rate
-                        })
-
-                    session.execute(do_update_stmt)
-                    session.commit()
+                    session = handle_integrity_error(session=session, row=row)
                     continue
             except IntegrityError:
-                session.rollback()
-                insert_stmt = insert(heart_daily_table).values(
-                    type=row.type,
-                    minutes=row.minutes,
-                    date=row.date,
-                    calories=row.calories,
-                    resting_heart_rate=row.resting_heart_rate)
-                do_update_stmt = insert_stmt.on_conflict_do_update(
-                    constraint='daily_type_date_key',
-                    set_={
-                        'type': row.type,
-                        'minutes': row.minutes,
-                        'date': row.date,
-                        'calories': row.calories,
-                        'resting_heart_rate': row.resting_heart_rate
-                    })
+                session = handle_integrity_error(session, row)
 
-                session.execute(do_update_stmt)
-                session.commit()
         session.close()
 
         return parsed_rows
