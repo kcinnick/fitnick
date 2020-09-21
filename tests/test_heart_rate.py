@@ -42,7 +42,7 @@ EXPECTED_DATA = {'activities-heart': [
 
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_get_heart_rate_time_series_period():
-    database = Database('fitbit_test')
+    database = Database('fitbit_test', 'heart')
     connection = database.engine.connect()
 
     connection.execute(heart_daily_table.delete())
@@ -82,3 +82,11 @@ def test_parse_response():
         assert row.date == EXPECTED_ROWS[index][2].strftime('%Y-%m-%d')
         assert row.calories == float(EXPECTED_ROWS[index][3])
         assert row.resting_heart_rate == EXPECTED_ROWS[index][4]
+
+
+def test_get_total_calories():
+    heart_rate_zone = HeartRateZone(config={'database': 'fitbit'})
+    df = heart_rate_zone.get_total_calories_df(show=False)
+
+    testing_date = (df.where(df.date == '2020-08-08').withColumnRenamed('sum(calories)', 'sum_calories')).take(1)[0]
+    assert testing_date.sum_calories == Decimal('3063.96122')

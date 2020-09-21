@@ -87,7 +87,7 @@ EXPECTED_API_RESPONSE = {
 
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_query_sleep_data():
-    database = Database('fitbit_test')
+    database = Database('fitbit_test', 'sleep')
     connection = database.engine.connect()
 
     connection.execute(sleep_summary_table.delete())
