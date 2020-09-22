@@ -84,6 +84,7 @@ def test_parse_response():
         assert row.resting_heart_rate == EXPECTED_ROWS[index][4]
 
 
+@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_get_total_calories():
     heart_rate_zone = HeartRateZone(config={'database': 'fitbit'})
     df = heart_rate_zone.get_total_calories_df(show=False)
