@@ -17,7 +17,9 @@ def build_sql_expression(table, conditions):
 
 
 class Database:
-    def __init__(self, database: str):
+    def __init__(self, database: str, schema: str):
+        self.database = database
+        self.schema = schema
         self.engine = create_engine(
             f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
             f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
@@ -40,11 +42,9 @@ class Database:
         self.spark_session = SparkSession.builder.getOrCreate()
         return
 
-    def get_df_from_db(self, database, schema, table):
+    def get_df_from_db(self, table):
         """
         Retrieves a PySpark dataframe containing all of the data in the specified table.
-        :param database: str, name of database
-        :param schema: str, name of schema
         :param table: str, name of table
         :return: DataFrame
         """
@@ -52,11 +52,11 @@ class Database:
             "driver": "org.postgresql.Driver",
             "user": os.environ['POSTGRES_USERNAME'],
             "password": os.environ['POSTGRES_PASSWORD'],
-            "currentSchema": schema
+            "currentSchema": self.schema
         }
 
         df = self.spark_session.read.jdbc(
-            url=f"jdbc:postgresql://{os.environ['POSTGRES_IP']}/{database}",
+            url=f"jdbc:postgresql://{os.environ['POSTGRES_IP']}/{self.database}",
             properties=properties,
             table=table
         )
