@@ -104,7 +104,7 @@ class HeartRateZone:
 
         data = self.query_heart_rate_zone_time_series()
         parsed_rows = self.parse_response(data)
-        db = Database(self.config['database'])
+        db = Database(self.config['database'], schema='heart')
 
         # create a session connected to the database in config
         session = sessionmaker(bind=db.engine)()
@@ -155,11 +155,24 @@ class HeartRateZone:
         rows = self.insert_heart_rate_time_series_data()
         return rows
 
+    def get_total_calories_df(self, show=True):
+        from fitnick.database.database import Database
+        from pyspark.sql import functions as F
+
+        database = Database(self.config['database'], schema='heart')
+        database.create_spark_session()
+        df = database.get_df_from_db('daily')
+        agg_df = (df.groupBy(F.col('date')).agg(F.sum('calories')).alias('calories')).orderBy('date')
+
+        if show:
+            agg_df.show()
+
+        return agg_df
+
     def backfill(self, period: int = 90):
         """
         Backfills a database from the current day.
         Example: if run on 2020-09-06 with period=90, the database will populate for 2020-06-08 - 2020-09-06
-        :param database: Name of database to insert into. Options are fitbit & fitbit_test
         :param period: Number of days to look backward.
         :return:
         """
