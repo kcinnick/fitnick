@@ -10,7 +10,7 @@ from decimal import Decimal
 import pytest
 
 from fitnick.database.database import Database
-from fitnick.heart_rate.heart_rate import HeartRateZone
+from fitnick.heart_rate.heart_rate import HeartRateTimeSeries
 from fitnick.heart_rate.models import heart_daily_table
 
 EXPECTED_ROWS = [
@@ -47,11 +47,11 @@ def test_get_heart_rate_time_series_period():
 
     connection.execute(heart_daily_table.delete())
 
-    HeartRateZone(config={
+    HeartRateTimeSeries(config={
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
         'period': '1d'}
-    ).insert_heart_rate_time_series_data()
+    ).insert_data()
 
     rows = [row for row in connection.execute(heart_daily_table.select())]
     connection.close()
@@ -60,17 +60,17 @@ def test_get_heart_rate_time_series_period():
 
 
 def test_query_heart_rate_zone_time_series():
-    data = HeartRateZone(config={
+    data = HeartRateTimeSeries(config={
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
         'end_date': '2020-09-05'}
-    ).query_heart_rate_zone_time_series()
+    ).query()
 
     assert data == EXPECTED_DATA
 
 
 def test_parse_response():
-    rows = HeartRateZone(config={
+    rows = HeartRateTimeSeries(config={
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
         'period': '1d'}
@@ -86,7 +86,7 @@ def test_parse_response():
 
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_get_total_calories():
-    heart_rate_zone = HeartRateZone(config={'database': 'fitbit'})
+    heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
     df = heart_rate_zone.get_total_calories_df(show=False)
 
     testing_date = (df.where(df.date == '2020-08-08').withColumnRenamed('sum(calories)', 'sum_calories')).take(1)[0]
