@@ -1,7 +1,7 @@
 from datetime import date
 
 from flask import Flask, make_response, render_template, request
-from fitnick.heart_rate.heart_rate import HeartRateZone, Database
+from fitnick.heart_rate.heart_rate import HeartRateTimeSeries, Database
 from fitnick.heart_rate.models import heart_daily_table
 
 app = Flask(__name__)
@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 @app.route("/", methods=['GET'])
 def index():
-    heart_rate_zone = HeartRateZone(config={'database': 'fitbit'})
+    heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
     rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
     return render_template(
         "index.html", value='Here\'s the latest heart rate data in the database.',
@@ -19,7 +19,7 @@ def index():
 
 @app.route("/get_heart_rate_zone_today", methods=['GET', 'POST'])
 def get_heart_rate_zone_today():
-    heart_rate_zone = HeartRateZone(config={'database': 'fitbit'})
+    heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
     if request.method == 'POST':
         print("Get heart rate zone method.")
         rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
