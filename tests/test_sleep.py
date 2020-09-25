@@ -4,7 +4,7 @@ import os
 import pytest
 
 from fitnick.database.database import Database
-from fitnick.sleep.sleep import Sleep, sleep_summary_table, parse_summary_response
+from fitnick.sleep.sleep import SleepTimeSeries, sleep_summary_table
 
 EXPECTED_API_RESPONSE = {
     'sleep': [
@@ -92,7 +92,7 @@ def test_query_sleep_data():
 
     connection.execute(sleep_summary_table.delete())
 
-    sleep_data = Sleep(config={
+    sleep_data = SleepTimeSeries(config={
         'database': 'fitbit_test',
         'date': '2020-09-05'
     }).query_sleep_data()
@@ -101,7 +101,7 @@ def test_query_sleep_data():
 
 
 def test_parse_summary_response():
-    parsed_response = parse_summary_response(EXPECTED_API_RESPONSE['sleep'][0])
+    parsed_response = SleepTimeSeries(config={}).parse_response(EXPECTED_API_RESPONSE['sleep'][0])[0]
 
     assert parsed_response.date == datetime.datetime(2020, 9, 5, 0, 0)
     assert parsed_response.deep == 84
