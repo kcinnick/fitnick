@@ -2,31 +2,14 @@ from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
 
-from fitnick.base.base import get_authorized_client
+from fitnick.base.base import get_authorized_client, TimeSeries
 from fitnick.database.database import Database
 from fitnick.sleep.models import SleepSummary, sleep_summary_table
 
 
-def parse_summary_response(sleep_data):
-    date_of_sleep = sleep_data['dateOfSleep']
-    summary_data = sleep_data['levels'].pop('summary')
-
-    sleep_row = SleepSummary(
-        # there's also count & thirtyDayAvgMinutes keys available in summary_data.
-        date=datetime.strptime(date_of_sleep, '%Y-%m-%d'),
-        deep=summary_data['deep']['minutes'],
-        light=summary_data['light']['minutes'],
-        rem=summary_data['rem']['minutes'],
-        wake=summary_data['wake']['minutes'],
-        total_minutes_asleep=sleep_data['minutesAsleep'],
-        total_time_in_bed=sleep_data['timeInBed']
-    )
-
-    return sleep_row
-
-
-class Sleep:
+class SleepTimeSeries(TimeSeries):
     def __init__(self, config):
+        super().__init__(config)
         self.authorized_client = get_authorized_client()
         self.authorized_client.API_VERSION = '1.2'
         #  Fitbit is deprecating the 1 version of these endpoints, as described here:
@@ -57,36 +40,25 @@ class Sleep:
         parsed_rows = []
 
         for row in response['sleep']:
-            parsed_row = parse_summary_response(row)
+            parsed_row = self.parse_response(row)
             parsed_rows.append(parsed_row)
 
         return parsed_rows
 
-    def insert_sleep_data(self, type_='summary'):
-        if type_ == 'summary':
-            sleep_data = self.query_sleep_data()
-            rows = [parse_summary_response(sleep_data)]
-        elif type_ == 'batch':
-            rows = self.batch_query_sleep_data()
-        else:
-            print(f"type {type_} not yet supported.")
-            return
+    @staticmethod
+    def parse_response(sleep_data):
+        date_of_sleep = sleep_data['dateOfSleep']
+        summary_data = sleep_data['levels'].pop('summary')
 
-        from sqlalchemy.dialects import postgresql
-        db = Database(self.config['database'])
-        connection = db.engine.connect()
+        sleep_row = SleepSummary(
+            # there's also count & thirtyDayAvgMinutes keys available in summary_data.
+            date=datetime.strptime(date_of_sleep, '%Y-%m-%d'),
+            deep=summary_data['deep']['minutes'],
+            light=summary_data['light']['minutes'],
+            rem=summary_data['rem']['minutes'],
+            wake=summary_data['wake']['minutes'],
+            total_minutes_asleep=sleep_data['minutesAsleep'],
+            total_time_in_bed=sleep_data['timeInBed']
+        )
 
-        for row in rows:
-            insert_stmt = postgresql.insert(sleep_summary_table, bind=db).values(
-                date=row.date, deep=row.deep, light=row.light, rem=row.rem,
-                wake=row.wake, total_minutes_asleep=row.total_minutes_asleep,
-                total_time_in_bed=row.total_time_in_bed
-            )
-            try:
-                connection.execute(insert_stmt)
-            except IntegrityError:
-                print('Data already exists for {}. Continuing.'.format(row.date))
-
-        connection.close()
-
-        return rows
+        return [sleep_row]

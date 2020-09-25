@@ -176,7 +176,7 @@ class TimeSeries:
         """
 
         data = self.query()
-        parsed_rows = self.parse_response(data)
+        parsed_rows = self.parse_response(data)  # method should be implemented in inheriting class
         db = Database(self.config['database'], schema=self.config['schema'])
 
         # create a session connected to the database in config
