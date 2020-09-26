@@ -1,6 +1,4 @@
-from datetime import datetime
-
-from sqlalchemy import MetaData, Table, Column, VARCHAR, UniqueConstraint, Numeric, Date, Integer, String, DateTime
+from sqlalchemy import MetaData, Table, Column, VARCHAR, UniqueConstraint, Date
 from sqlalchemy.ext.declarative import declarative_base
 
 meta = MetaData()
