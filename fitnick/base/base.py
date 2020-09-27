@@ -4,14 +4,15 @@ from datetime import datetime, timedelta, date
 
 import fitbit
 from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
 from sqlalchemy import create_engine
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.exc import FlushError
 from tqdm import tqdm
 
 from fitnick.database.database import Database
-from sqlalchemy.dialects.postgresql import insert
 from fitnick.heart_rate.models import heart_daily_table
 
 
@@ -83,12 +84,12 @@ def refresh_authorized_client():
     return
 
 
-def get_df_from_db(spark_session, database, schema, table):
+def get_df_from_db(spark_session, database: str, schema: str, table: str):
     """
     Retrieves a PySpark dataframe containing all of the data in the specified table.
     :param spark_session: Existing SparkSession object
     :param database: str, name of database
-    :param schema: str, name of schema
+    :param schema: str, name of database schema
     :param table: str, name of table
     :return: DataFrame
     """
@@ -102,7 +103,7 @@ def get_df_from_db(spark_session, database, schema, table):
     df = spark_session.read.jdbc(
         url=f"jdbc:postgresql://{os.environ['POSTGRES_IP']}/{database}",
         properties=properties,
-        table=table
+        table=table,
     )
 
     return df
@@ -213,3 +214,30 @@ class TimeSeries:
         self.config['end_date'] = date.today().strftime('%Y-%m-%d')
 
         self.insert_data()
+
+    def plot(self):
+        import matplotlib.pyplot as plt
+        spark_session = SparkSession.builder.getOrCreate()
+
+        properties = {
+            "driver": "org.postgresql.Driver",
+            "user": os.environ['POSTGRES_USERNAME'],
+            "password": os.environ['POSTGRES_PASSWORD'],
+            "currentSchema": 'heart'
+        }
+
+        df = spark_session.read.jdbc(
+            url=f"jdbc:postgresql://{os.environ['POSTGRES_IP']}/fitbit",
+            properties=properties,
+            table='daily',
+        )
+        agg_df = (df.groupBy(F.col('date')).agg(F.sum('calories')).alias('calories')).orderBy('date')
+        agg_df = agg_df.toPandas()
+        agg_df['calories'] = agg_df['sum(calories)'].astype(float)
+        agg_df.plot(
+            kind='bar',
+            x='date',
+            y='calories'
+        )
+        plt.show()
+        return
