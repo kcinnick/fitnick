@@ -4,7 +4,7 @@ import os
 import pytest
 
 from fitnick.database.database import Database
-from fitnick.sleep.sleep import SleepTimeSeries, sleep_summary_table
+from fitnick.sleep.sleep import SleepTimeSeries
 
 EXPECTED_API_RESPONSE = {
     'sleep': [

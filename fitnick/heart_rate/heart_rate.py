@@ -1,14 +1,8 @@
-from datetime import date, datetime, timedelta
+from datetime import date
 
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.orm.exc import FlushError
 
-from tqdm import tqdm
-
-from fitnick.base.base import get_authorized_client, TimeSeries
-from fitnick.database.database import Database
+from fitnick.base.base import TimeSeries
 from fitnick.heart_rate.models import HeartDaily, heart_daily_table
 
 

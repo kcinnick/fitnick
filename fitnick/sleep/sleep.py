@@ -1,10 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy.exc import IntegrityError
-
 from fitnick.base.base import get_authorized_client, TimeSeries
-from fitnick.database.database import Database
-from fitnick.sleep.models import SleepSummary, sleep_summary_table
+from fitnick.sleep.models import SleepSummary
 
 
 class SleepTimeSeries(TimeSeries):
