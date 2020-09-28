@@ -233,18 +233,19 @@ class TimeSeries:
         )
 
         if self.config['resource'] == 'heart':
+            comparison = self.config.get('sum_column', 'calories')
             agg_df = (
                 df.groupBy(F.col('date')).agg(
-                    F.sum(self.config.get('sum_column', 'calories')).alias(self.config.get('sum_column', 'calories'))
+                    F.sum(comparison).alias(comparison)
                 ).orderBy('date')
             )
 
             agg_df = agg_df.toPandas()
-            agg_df['calories'] = agg_df['calories'].astype(float)
+            agg_df[comparison] = agg_df[comparison].astype(float)
             agg_df.plot(
                 kind='bar',
                 x='date',
-                y='calories'
+                y=comparison
             )
             plt.show()
         else:
