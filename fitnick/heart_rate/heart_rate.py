@@ -2,7 +2,7 @@ from datetime import date
 
 from sqlalchemy.dialects.postgresql import insert
 
-from fitnick.base.base import TimeSeries
+from fitnick.time_series import TimeSeries
 from fitnick.heart_rate.models import HeartDaily, heart_daily_table
 
 

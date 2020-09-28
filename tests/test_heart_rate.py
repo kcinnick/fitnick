@@ -10,8 +10,8 @@ from decimal import Decimal
 import pytest
 
 from fitnick.database.database import Database
-from fitnick.heart_rate.heart_rate import HeartRateTimeSeries
 from fitnick.heart_rate.models import heart_daily_table
+from fitnick.heart_rate.heart_rate import HeartRateTimeSeries
 
 EXPECTED_ROWS = [
     ('Out of Range', Decimal('1267.00000'), datetime.date(2020, 9, 5), Decimal('2086.83184'), 68),

@@ -1,6 +1,7 @@
 from datetime import datetime
 
-from fitnick.base.base import get_authorized_client, TimeSeries
+from fitnick.base.base import get_authorized_client
+from fitnick.time_series import TimeSeries
 from fitnick.sleep.models import SleepSummary
 
 
