@@ -1,7 +1,8 @@
 from datetime import date
 
 from flask import Flask, make_response, render_template, request
-from fitnick.heart_rate.heart_rate import HeartRateTimeSeries, Database
+from fitnick.database.database import Database
+from fitnick.heart_rate.heart_rate import HeartRateTimeSeries
 from fitnick.heart_rate.models import heart_daily_table
 
 app = Flask(__name__)
