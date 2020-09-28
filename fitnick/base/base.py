@@ -229,15 +229,26 @@ class TimeSeries:
         df = spark_session.read.jdbc(
             url=f"jdbc:postgresql://{os.environ['POSTGRES_IP']}/fitbit",
             properties=properties,
-            table='daily',
+            table=self.config['table'],
         )
-        agg_df = (df.groupBy(F.col('date')).agg(F.sum('calories')).alias('calories')).orderBy('date')
-        agg_df = agg_df.toPandas()
-        agg_df['calories'] = agg_df['sum(calories)'].astype(float)
-        agg_df.plot(
-            kind='bar',
-            x='date',
-            y='calories'
-        )
-        plt.show()
+
+        if self.config['resource'] == 'heart':
+            comparison = self.config.get('sum_column', 'calories')
+            agg_df = (
+                df.groupBy(F.col('date')).agg(
+                    F.sum(comparison).alias(comparison)
+                ).orderBy('date')
+            )
+
+            agg_df = agg_df.toPandas()
+            agg_df[comparison] = agg_df[comparison].astype(float)
+            agg_df.plot(
+                kind='bar',
+                x='date',
+                y=comparison
+            )
+            plt.show()
+        else:
+            print('Resource {} does not support plotting yet. Bug the developer!')
+
         return
