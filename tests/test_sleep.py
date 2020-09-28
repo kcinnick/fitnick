@@ -6,6 +6,7 @@ import pytest
 from fitnick.database.database import Database
 from fitnick.sleep.sleep import SleepTimeSeries
 from fitnick.sleep.models import sleep_summary_table
+from fitnick.time_series import TimeSeries
 
 EXPECTED_API_RESPONSE = {
     'sleep': [
