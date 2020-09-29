@@ -31,7 +31,8 @@ def get_heart_rate_zone_today():
         )
     else:
         heart_rate_zone.config = {'base_date': date.today(), 'period': '1d'}
-        rows = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
+        statement = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
+        rows = Database(database='fitbit', schema='heart').engine.execute(statement)
         return render_template(
             "index.html", value='Here\'s the latest heart rate data in the database.',
             rows=[row for row in rows if row.date == str(date.today())]
