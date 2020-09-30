@@ -31,5 +31,12 @@ tr:nth-child(even) {
              </table>
         </form>
 
+    <form method="POST" action="/get_heart_rate_zone_for_date">
+        Get heart rate zone for a specific day. Format is YYYY-MM-DD.
+
+    {{ form.date }}
+    <input type="submit" value="Go">
+</form>
+
     </body>
 </html>
