@@ -1,33 +1,48 @@
 from datetime import date
+import os
 
 from flask import Flask, make_response, render_template, request
+from flask_wtf import FlaskForm
+from wtforms import StringField
+
 from fitnick.database.database import Database
 from fitnick.heart_rate.heart_rate import HeartRateTimeSeries
 from fitnick.heart_rate.models import heart_daily_table
 
-app = Flask(__name__)
+app = Flask(__name __)
+SECRET_KEY = os.urandom(32)
+app.config['SECRET_KEY'] = SECRET_KEY
+
+
+class DateForm(FlaskForm):
+    date = StringField('date')
 
 
 @app.route("/", methods=['GET'])
 def index():
     heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
     rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
+    form = DateForm(request.form)
     return render_template(
         "index.html", value='Here\'s the latest heart rate data in the database.',
-        rows=[row for row in rows if row.date == str(date.today())]
+        rows=[row for row in rows if row.date == str(date.today())],
+        form=form
     )
 
 
 @app.route("/get_heart_rate_zone_today", methods=['GET', 'POST'])
 def get_heart_rate_zone_today():
     heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
+    form = DateForm(request.form)
+
     if request.method == 'POST':
         print("Get heart rate zone method.")
         rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
         rows = [row for row in rows if row.date == str(date.today())]
         return render_template(
             "index.html", value='Today\'s heart rate data was placed in the database!',
-            rows=[row for row in rows if row.date == str(date.today())]
+            rows=[row for row in rows if row.date == str(date.today())],
+            form=form
         )
     else:
         heart_rate_zone.config = {'base_date': date.today(), 'period': '1d'}
@@ -35,8 +50,21 @@ def get_heart_rate_zone_today():
         rows = Database(database='fitbit', schema='heart').engine.execute(statement)
         return render_template(
             "index.html", value='Here\'s the latest heart rate data in the database.',
-            rows=[row for row in rows if row.date == str(date.today())]
+            rows=[row for row in rows if row.date == str(date.today())],
+            form=form
         )
+
+
+@app.route("/get_heart_rate_zone_for_date", methods=['GET', 'POST'])
+def get_heart_rate_zone_date():
+    heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
+    form = DateForm(request.form)
+    rows = []
+
+    if request.method == 'POST':
+        rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit', target_date=form.date._value())
+
+    return render_template('index.html', form=form, rows=rows)
 
 
 @app.route('/<page_name>')
