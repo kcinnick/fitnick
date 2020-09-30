@@ -10,7 +10,7 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['Click>=7.0', 'requests', 'fitbit', 'sqlalchemy', 'tqdm', 'pyspark']
+requirements = ['Click>=7.0', 'requests', 'fitbit', 'sqlalchemy', 'tqdm', 'pyspark', 'matplotlib', 'flask', 'wtforms']
 
 setup_requirements = ['pytest-runner', ]
 
