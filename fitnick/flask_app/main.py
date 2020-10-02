@@ -9,7 +9,7 @@ from fitnick.database.database import Database
 from fitnick.heart_rate.heart_rate import HeartRateTimeSeries
 from fitnick.heart_rate.models import heart_daily_table
 
-app = Flask(__name __)
+app = Flask(__name__)
 SECRET_KEY = os.urandom(32)
 app.config['SECRET_KEY'] = SECRET_KEY
 
