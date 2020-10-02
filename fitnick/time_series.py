@@ -49,11 +49,20 @@ class TimeSeries:
             else:
                 raise NotImplementedError(f'Period {period} is not supported.\n')
 
-        data = self.authorized_client.time_series(
-            resource=f'activities/{self.config["resource"]}',
-            base_date=self.config['base_date'],
-            end_date=self.config['end_date']
-        )
+        if self.config['resource'] in ['sleep', 'heart']:
+            data = self.authorized_client.time_series(
+                resource=f'activities/{self.config["resource"]}',
+                base_date=self.config['base_date'],
+                end_date=self.config['end_date']
+            )
+        elif self.config['resource'] in ['bmi', 'fat', 'weight']:
+            data = self.authorized_client.time_series(
+                resource=f'body/{self.config["resource"]}',
+                base_date=self.config['base_date'],
+                end_date=self.config['end_date']
+            )
+        else:
+            raise NotImplementedError(f'Resource {self.config["resource"]} is not yet supported.\n')
 
         return data
 
@@ -110,7 +119,7 @@ class TimeSeries:
             "driver": "org.postgresql.Driver",
             "user": os.environ['POSTGRES_USERNAME'],
             "password": os.environ['POSTGRES_PASSWORD'],
-            "currentSchema": 'heart'
+            "currentSchema": self.config['schema']
         }
 
         df = spark_session.read.jdbc(
