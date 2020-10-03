@@ -1,11 +1,17 @@
+from sqlalchemy.orm import sessionmaker
+
+from fitnick.database.database import Database
 from fitnick.time_series import TimeSeries
 from fitnick.body.models import WeightRecord, weight_table
+
+from sqlalchemy.dialects.postgresql import insert
 
 
 class WeightTimeSeries(TimeSeries):
     def __init__(self, config):
         super().__init__(config)
-        self.config['schema'] = 'body'
+        self.config['schema'] = 'weight'
+        self.config['resource'] = 'weight'
         return
 
     @staticmethod
@@ -18,3 +24,19 @@ class WeightTimeSeries(TimeSeries):
             rows.append(row)
 
         return rows
+
+    def insert_data(self):
+        data = self.query()
+        parsed_rows = self.parse_response(data)
+        db = Database(self.config['database'], schema=self.config['schema'])
+        session = sessionmaker(bind=db.engine)()
+        for row in parsed_rows:
+            insert_statement = insert(weight_table).values(
+                date=row.date,
+                pounds=row.pounds
+            )
+            session.execute(insert_statement)
+            session.commit()
+
+        session.close()
+        return
