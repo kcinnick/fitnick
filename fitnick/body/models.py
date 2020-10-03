@@ -6,18 +6,18 @@ Base = declarative_base()
 
 
 class WeightRecord(Base):
-    __tablename__ = 'weight'
+    __tablename__ = 'daily'
     date = Column(Date, nullable=False, primary_key=True)
-    pounds = Column(Numeric(3, 1))
+    pounds = Column(Numeric(4, 1))
     UniqueConstraint('date', name='date')
-    schema = 'body'
+    schema = 'weight'
 
 
 weight_table = Table(
-    'weight',
+    'daily',
     meta,
     Column('date', Date, nullable=False, primary_key=True),
-    Column('pounds', Numeric(3, 1)),
+    Column('pounds', Numeric(4, 1)),
     UniqueConstraint('date', name='date'),
-    schema='body'
+    schema='weight'
 )
