@@ -35,7 +35,7 @@ class HeartIntraday(Base):
     __tablename__ = 'intraday'
     date = Column(Date, nullable=False)
     time = Column(VARCHAR)
-    value = Column(Numeric(10, 5)),
+    value = Column(Integer()),
     UniqueConstraint('date', 'time', name='date_time'),
     schema = 'heart'
 
