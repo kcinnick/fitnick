@@ -15,7 +15,7 @@ class HeartDaily(Base):
     calories = Column(Numeric(10, 5))
     resting_heart_rate = Column(Integer)
     UniqueConstraint('type', 'minutes', 'date', 'calories', name='daily_type_minutes_date_calories')
-    schema='heart'
+    schema = 'heart'
 
 
 heart_daily_table = Table(
@@ -27,5 +27,25 @@ heart_daily_table = Table(
     Column('calories', Numeric(10, 5)),
     Column('resting_heart_rate', Integer()),
     UniqueConstraint('type', 'minutes', 'date', 'calories', name='daily_type_minutes_date_calories'),
+    schema='heart',
+)
+
+
+class HeartIntraday(Base):
+    __tablename__ = 'intraday'
+    date = Column(Date, nullable=False)
+    time = Column(VARCHAR)
+    value = Column(Numeric(10, 5)),
+    UniqueConstraint('date', 'time', name='date_time'),
+    schema = 'heart'
+
+
+heart_intraday_table = Table(
+    'intraday',
+    meta,
+    Column('date', Date, nullable=False),
+    Column('time', VARCHAR),
+    Column('value', Integer()),
+    UniqueConstraint('date', 'time', name='date_time'),
     schema='heart',
 )
