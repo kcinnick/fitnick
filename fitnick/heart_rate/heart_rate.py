@@ -3,7 +3,7 @@ from datetime import date
 from sqlalchemy.dialects.postgresql import insert
 
 from fitnick.time_series import TimeSeries
-from fitnick.heart_rate.models import HeartDaily, heart_daily_table
+from fitnick.heart_rate.models import HeartDaily, heart_daily_table, HeartIntraday, heart_intraday_table
 
 
 def handle_integrity_error(session, row):
@@ -41,6 +41,7 @@ class HeartRateTimeSeries(TimeSeries):
     @staticmethod
     def parse_response(data):
         rows = []
+
         for day in data['activities-heart']:
             date = day['dateTime']
             try:
@@ -56,6 +57,16 @@ class HeartRateTimeSeries(TimeSeries):
                     resting_heart_rate=resting_heart_rate
                 )
                 rows.append(row)
+
+        return rows
+
+    @staticmethod
+    def parse_intraday_response(intraday_response, date):
+        rows = []
+
+        for entry in intraday_response['dataset']:
+            row = HeartIntraday(date=date, time=entry['time'], value=entry['value'])
+            rows.append(row)
 
         return rows
 

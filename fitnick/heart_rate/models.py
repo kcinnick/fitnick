@@ -33,18 +33,21 @@ heart_daily_table = Table(
 
 class HeartIntraday(Base):
     __tablename__ = 'intraday'
-    date = Column(Date, nullable=False)
-    time = Column(VARCHAR)
+    date = Column(Date, nullable=False, primary_key=True)
+    time = Column(VARCHAR, primary_key=True)
     value = Column(Integer()),
     UniqueConstraint('date', 'time', name='date_time'),
     schema = 'heart'
+
+    def __str__(self):
+        return f"{self.date}, {self.time}, {self.value}"
 
 
 heart_intraday_table = Table(
     'intraday',
     meta,
-    Column('date', Date, nullable=False),
-    Column('time', VARCHAR),
+    Column('date', Date, nullable=False, primary_key=True),
+    Column('time', VARCHAR, primary_key=True),
     Column('value', Integer()),
     UniqueConstraint('date', 'time', name='date_time'),
     schema='heart',
