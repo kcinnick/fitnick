@@ -19,6 +19,7 @@ class TimeSeries:
     be used on it's own but serve as a base class for endpoint-specific
     classes.
     """
+
     def __init__(self, config):
         self.config = config
         self.authorized_client = get_authorized_client()
@@ -48,6 +49,11 @@ class TimeSeries:
                 self.config['end_date'] = base_date + timedelta(days=1)
             else:
                 raise NotImplementedError(f'Period {period} is not supported.\n')
+
+        if not self.config.get('end_date') and not period:
+            self.config['end_date'] = self.config['base_date']
+            #  if there's neither an end date or period specified,
+            #  default to a 1d query.
 
         if self.config['resource'] in ['sleep', 'heart']:
             data = self.authorized_client.time_series(
@@ -94,6 +100,42 @@ class TimeSeries:
                     continue
             except IntegrityError:
                 session = handle_integrity_error(session, row)
+
+        session.close()
+
+        return parsed_rows
+
+    def insert_intraday_data(self):
+        """
+        Extracts, transforms & loads the data specified by the self.config dict.
+        :return:
+        """
+
+        data = self.query()
+        parsed_rows = self.parse_intraday_response(date=self.config['base_date'], intraday_response=data)
+        db = Database(self.config['database'], schema=self.config['schema'])
+
+        # create a session connected to the database in config
+        session = sessionmaker(bind=db.engine)()
+
+        for row in tqdm(parsed_rows[:10]):
+            print(row)
+            try:
+                session.add(row)
+                session.commit()
+            except FlushError:
+                session.expunge_all()
+                session.rollback()
+                session.add(row)
+                try:
+                    session.commit()
+                except IntegrityError:
+                    session = handle_integrity_error(session=session, row=row)
+                    continue
+            except IntegrityError:
+                session.expunge_all()
+                session.rollback()
+                continue
 
         session.close()
 
