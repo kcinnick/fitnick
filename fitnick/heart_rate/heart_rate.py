@@ -62,7 +62,6 @@ class HeartRateTimeSeries(TimeSeries):
     @staticmethod
     def parse_intraday_response(date, intraday_response):
         rows = []
-        print(intraday_response)
         for entry in intraday_response['activities-heart-intraday']['dataset']:
             row = HeartIntraday(date=date, time=entry['time'], value=entry['value'])
             rows.append(row)

@@ -118,8 +118,7 @@ class TimeSeries:
         # create a session connected to the database in config
         session = sessionmaker(bind=db.engine)()
 
-        for row in tqdm(parsed_rows[:10]):
-            print(row)
+        for row in tqdm(parsed_rows):
             try:
                 session.add(row)
                 session.commit()

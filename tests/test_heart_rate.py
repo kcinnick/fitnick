@@ -128,6 +128,7 @@ def test_parse_intraday_response():
         assert row.value == EXPECTED_INTRADAY_ROWS[index][2]
 
 
+@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='takes inordinately long - test locally.')
 def test_insert_intraday_data():
     heart_rate_zone = HeartRateTimeSeries(config={
         'database': 'fitbit_test',
