@@ -38,8 +38,7 @@ class HeartRateTimeSeries(TimeSeries):
         self.config['schema'] = 'heart'
         return
 
-    @staticmethod
-    def parse_response(data):
+    def parse_response(self, data):
         rows = []
 
         for day in data['activities-heart']:
@@ -61,10 +60,9 @@ class HeartRateTimeSeries(TimeSeries):
         return rows
 
     @staticmethod
-    def parse_intraday_response(intraday_response, date):
+    def parse_intraday_response(date, intraday_response):
         rows = []
-
-        for entry in intraday_response['dataset']:
+        for entry in intraday_response['activities-heart-intraday']['dataset']:
             row = HeartIntraday(date=date, time=entry['time'], value=entry['value'])
             rows.append(row)
 
