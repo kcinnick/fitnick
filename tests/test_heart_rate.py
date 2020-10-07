@@ -64,6 +64,7 @@ EXPECTED_INTRADAY_DATA = {'activities-heart-intraday': {'dataset': [
     'datasetType': 'minute'}
 }
 
+
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_get_heart_rate_time_series_period():
     database = Database('fitbit_test', 'heart')
@@ -75,7 +76,7 @@ def test_get_heart_rate_time_series_period():
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
         'period': '1d'}
-    ).insert_data()
+    ).insert_data(database)
 
     rows = [row for row in connection.execute(heart_daily_table.select())]
     connection.close()
