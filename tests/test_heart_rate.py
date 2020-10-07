@@ -10,7 +10,7 @@ from decimal import Decimal
 import pytest
 
 from fitnick.database.database import Database
-from fitnick.heart_rate.models import heart_daily_table
+from fitnick.heart_rate.models import heart_daily_table, heart_intraday_table
 from fitnick.heart_rate.heart_rate import HeartRateTimeSeries
 
 EXPECTED_ROWS = [
@@ -141,9 +141,15 @@ def test_insert_intraday_data():
 
 @pytest.mark.skip(reason='takes inordinately long - test locally.')
 def test_insert_intraday_data():
+    database = Database('fitbit_test', 'heart')
+    connection = database.engine.connect()
+
+    connection.execute(heart_intraday_table.delete())
+
     heart_rate_zone = HeartRateTimeSeries(config={
         'database': 'fitbit_test',
         'base_date': '2020-10-04'
         })
-    heart_rate_zone.insert_intraday_data()
-    return
+
+    rows = heart_rate_zone.insert_intraday_data()
+    assert len(rows) == 1381
