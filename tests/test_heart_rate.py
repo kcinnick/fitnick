@@ -10,7 +10,7 @@ from decimal import Decimal
 import pytest
 
 from fitnick.database.database import Database
-from fitnick.heart_rate.models import heart_daily_table
+from fitnick.heart_rate.models import heart_daily_table, heart_intraday_table
 from fitnick.heart_rate.heart_rate import HeartRateTimeSeries
 
 EXPECTED_ROWS = [
@@ -64,6 +64,7 @@ EXPECTED_INTRADAY_DATA = {'activities-heart-intraday': {'dataset': [
     'datasetType': 'minute'}
 }
 
+
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_get_heart_rate_time_series_period():
     database = Database('fitbit_test', 'heart')
@@ -75,7 +76,7 @@ def test_get_heart_rate_time_series_period():
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
         'period': '1d'}
-    ).insert_data()
+    ).insert_data(database)
 
     rows = [row for row in connection.execute(heart_daily_table.select())]
     connection.close()
@@ -136,3 +137,19 @@ def test_insert_intraday_data():
         })
     heart_rate_zone.insert_intraday_data()
     return
+
+
+@pytest.mark.skip(reason='takes inordinately long - test locally.')
+def test_insert_intraday_data():
+    database = Database('fitbit_test', 'heart')
+    connection = database.engine.connect()
+
+    connection.execute(heart_intraday_table.delete())
+
+    heart_rate_zone = HeartRateTimeSeries(config={
+        'database': 'fitbit_test',
+        'base_date': '2020-10-04'
+        })
+
+    rows = heart_rate_zone.insert_intraday_data()
+    assert len(rows) == 1381

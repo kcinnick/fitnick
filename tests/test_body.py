@@ -1,10 +1,7 @@
 import datetime
 from decimal import Decimal
 
-import pytest
-
 from fitnick.body.body import WeightTimeSeries
-from fitnick.body.models import weight_table
 from fitnick.database.database import Database
 
 EXPECTED_WEIGHT_RESPONSE = {'body-weight': [{'dateTime': '2020-09-05', 'value': '176.0'}]}
@@ -33,6 +30,8 @@ def test_parse_weight_response():
 
 
 def test_insert_weight_data():
+    from fitnick.body.models import weight_table
+
     database = Database('fitbit_test', 'weight')
     connection = database.engine.connect()
 

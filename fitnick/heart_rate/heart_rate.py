@@ -2,6 +2,7 @@ from datetime import date
 
 from sqlalchemy.dialects.postgresql import insert
 
+from fitnick.database.database import Database
 from fitnick.time_series import TimeSeries
 from fitnick.heart_rate.models import HeartDaily, heart_daily_table, HeartIntraday, heart_intraday_table
 
@@ -105,5 +106,7 @@ class HeartRateTimeSeries(TimeSeries):
                 'database': database}
             )
 
-        rows = self.insert_data()
+        db = Database(database=database, schema=self.config['schema'])
+        rows = self.insert_data(db)
+
         return rows
