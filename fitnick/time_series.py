@@ -72,7 +72,7 @@ class TimeSeries:
 
         return data
 
-    def insert_data(self):
+    def insert_data(self, database):
         """
         Extracts, transforms & loads the data specified by the self.config dict.
         :return:
@@ -80,28 +80,18 @@ class TimeSeries:
 
         data = self.query()
         parsed_rows = self.parse_response(data)  # method should be implemented in inheriting class
-        db = Database(self.config['database'], schema=self.config['schema'])
 
         # create a session connected to the database in config
-        session = sessionmaker(bind=db.engine)()
 
         for row in tqdm(parsed_rows):
+            session = sessionmaker(bind=database.engine)()
             try:
                 session.add(row)
                 session.commit()
-            except FlushError:
-                session.expunge_all()
-                session.rollback()
-                session.add(row)
-                try:
-                    session.commit()
-                except IntegrityError:
-                    session = handle_integrity_error(session=session, row=row)
-                    continue
             except IntegrityError:
-                session = handle_integrity_error(session, row)
-
-        session.close()
+                handle_integrity_error(session, row)
+            finally:
+                session.close()
 
         return parsed_rows
 
@@ -119,22 +109,8 @@ class TimeSeries:
         session = sessionmaker(bind=db.engine)()
 
         for row in tqdm(parsed_rows):
-            try:
-                session.add(row)
-                session.commit()
-            except FlushError:
-                session.expunge_all()
-                session.rollback()
-                session.add(row)
-                try:
-                    session.commit()
-                except IntegrityError:
-                    session = handle_integrity_error(session=session, row=row)
-                    continue
-            except IntegrityError:
-                session.expunge_all()
-                session.rollback()
-                continue
+            session.add(row)
+            session.commit()
 
         session.close()
 
@@ -150,7 +126,8 @@ class TimeSeries:
         self.config['base_date'] = (date.today() - timedelta(days=period)).strftime('%Y-%m-%d')
         self.config['end_date'] = date.today().strftime('%Y-%m-%d')
 
-        self.insert_data()
+        database = Database(database=self.config['database'], schema=self.config['schema'])
+        self.insert_data(database)
 
     def plot(self):
         import matplotlib.pyplot as plt
