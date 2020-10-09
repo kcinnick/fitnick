@@ -46,3 +46,13 @@ def test_insert_weight_data():
     connection.close()
 
     assert sorted(rows) == sorted(EXPECTED_WEIGHT_DATA)
+
+
+def test_body_plot():
+    # although there's no assertions, this effectively tests the plotting method for weight
+    # via the config.
+    WeightTimeSeries(config={
+        'database': 'fitbit_test',
+        'base_date': '2020-09-05',
+        'period': '1d',
+        'table': 'daily'}).plot()
