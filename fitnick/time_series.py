@@ -55,7 +55,9 @@ class TimeSeries:
             #  if there's neither an end date or period specified,
             #  default to a 1d query.
 
-        if self.config['resource'] in ['sleep', 'heart']:
+        if self.config['resource'] in ['sleep', 'heart', 'steps', 'calories', 'caloriesBMR', 'distance',
+                                       'floors', 'elevation', 'minutesSedentary', 'minutesLightlyActive',
+                                       'minutesFairlyActive', 'minutesVeryActive', 'activityCalories']:
             data = self.authorized_client.time_series(
                 resource=f'activities/{self.config["resource"]}',
                 base_date=self.config['base_date'],
@@ -141,7 +143,7 @@ class TimeSeries:
         }
 
         df = spark_session.read.jdbc(
-            url=f"jdbc:postgresql://{os.environ['POSTGRES_IP']}/fitbit",
+            url=f"jdbc:postgresql://{os.environ['POSTGRES_IP']}/{self.config['database']}",
             properties=properties,
             table=self.config['table'],
         )
@@ -162,7 +164,16 @@ class TimeSeries:
                 y=comparison
             )
             plt.show()
+        elif self.config['resource'] == 'weight':
+            """parsing for weight"""
+            df = df.orderBy('date').toPandas()
+            df['pounds'] = df['pounds'].astype(float)
+            df.plot(
+                x='date',
+                y='pounds'
+            )
+            plt.show()
         else:
-            print('Resource {} does not support plotting yet. Bug the developer!')
+            print('Resource {} does not support plotting yet. Bug the developer!'.format(self.config['resource']))
 
         return
