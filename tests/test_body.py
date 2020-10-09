@@ -1,5 +1,8 @@
 import datetime
+import os
 from decimal import Decimal
+
+import pytest
 
 from fitnick.body.body import WeightTimeSeries
 from fitnick.database.database import Database
@@ -48,6 +51,7 @@ def test_insert_weight_data():
     assert sorted(rows) == sorted(EXPECTED_WEIGHT_DATA)
 
 
+@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_body_plot():
     # although there's no assertions, this effectively tests the plotting method for weight
     # via the config.
