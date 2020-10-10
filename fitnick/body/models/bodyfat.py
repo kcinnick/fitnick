@@ -15,6 +15,12 @@ class BodyFatRecord(Base):
     UniqueConstraint('date', name='date')
     schema = 'bodyfat'
 
+    def __eq__(self, other):
+        return self.date, self.fat, self.source == other.date, other.fat, other.source
+
+    def __str__(self):
+        return f"{self.date}, {self.fat}, {self.source}, {self.time}"
+
 
 bodyfat_table = Table(
     'daily',
