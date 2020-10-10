@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 
-from fitnick.body.body import WeightTimeSeries
+from fitnick.body.body import WeightTimeSeries, BodyFat
 from fitnick.database.database import Database
 
 EXPECTED_WEIGHT_RESPONSE = {'body-weight': [{'dateTime': '2020-09-05', 'value': '176.0'}]}
@@ -60,3 +60,13 @@ def test_body_plot():
         'base_date': '2020-09-05',
         'period': '1d',
         'table': 'daily'}).plot()
+
+
+def test_get_body_fat():
+    logs = BodyFat(config={
+        'database': 'fitbit_test',
+        'base_date': '2020-09-05',
+        'period': '1m',
+        'table': 'daily'}).query()
+
+    assert len(logs['fat']) == 7

@@ -1,7 +1,8 @@
+from fitnick.base.base import get_authorized_client
 from sqlalchemy.orm import sessionmaker
 
 from fitnick.database.database import Database
-from fitnick.time_series import TimeSeries
+from fitnick.time_series import TimeSeries, set_dates
 from fitnick.body.models import WeightRecord, weight_table
 
 from sqlalchemy.dialects.postgresql import insert
@@ -40,3 +41,22 @@ class WeightTimeSeries(TimeSeries):
 
         session.close()
         return
+
+
+class BodyFat:
+    def __init__(self, config):
+        self.config = {'schema': 'weight', 'resource': 'fat'}
+        self.config.update(config)
+        self.authorized_client = get_authorized_client()
+
+    def query(self):
+        # set base & end date if this is a period search
+        config = set_dates(self.config)
+        self.config.update(config)
+
+        data = self.authorized_client.make_request(
+            method='get',
+            url=f'https://api.fitbit.com/{self.authorized_client.API_VERSION}' +
+                   f'/user/-/body/log/fat/date/{self.config["base_date"]}/{self.config["end_date"]}.json')
+
+        return data
