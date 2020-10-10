@@ -5,11 +5,38 @@ from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.orm.exc import FlushError
 from tqdm import tqdm
 
 from fitnick.base.base import get_authorized_client, handle_integrity_error
 from fitnick.database.database import Database
+
+
+def set_dates(config):
+    try:
+        assert len(config['base_date'].split('-')[0]) == 4
+    except AssertionError:
+        print('Dates must be formatted as YYYY-MM-DD. Exiting.')
+        exit()
+
+    base_date = datetime.strptime(config['base_date'], '%Y-%m-%d')
+    period = config.get('period')
+
+    if period:
+        if period in ['1m', '30d']:
+            config['end_date'] = (base_date + timedelta(days=30)).date()
+        elif period in ['7d', '1w']:
+            config['end_date'] = (base_date + timedelta(days=7)).date()
+        elif period == '1d':
+            config['end_date'] = (base_date + timedelta(days=1)).date()
+        else:
+            raise NotImplementedError(f'Period {period} is not supported.\n')
+
+    if not config.get('end_date') and not period:
+        config['end_date'] = config['base_date']
+        #  if there's neither an end date or period specified,
+        #  default to a 1d query.
+
+    return config
 
 
 class TimeSeries:
@@ -31,29 +58,7 @@ class TimeSeries:
         https://dev.fitbit.com/build/reference/web-api/heart-rate/#get-heart-rate-time-series
         :return:
         """
-        try:
-            assert len(self.config['base_date'].split('-')[0]) == 4
-        except AssertionError:
-            print('Dates must be formatted as YYYY-MM-DD. Exiting.')
-            exit()
-
-        base_date = datetime.strptime(self.config['base_date'], '%Y-%m-%d')
-        period = self.config.get('period')
-
-        if period:
-            if period in ['1m', '30d']:
-                self.config['end_date'] = base_date + timedelta(days=30)
-            elif period in ['7d', '1w']:
-                self.config['end_date'] = base_date + timedelta(days=7)
-            elif period == '1d':
-                self.config['end_date'] = base_date + timedelta(days=1)
-            else:
-                raise NotImplementedError(f'Period {period} is not supported.\n')
-
-        if not self.config.get('end_date') and not period:
-            self.config['end_date'] = self.config['base_date']
-            #  if there's neither an end date or period specified,
-            #  default to a 1d query.
+        self.config = set_dates(self.config)
 
         if self.config['resource'] in ['sleep', 'heart', 'steps', 'calories', 'caloriesBMR', 'distance',
                                        'floors', 'elevation', 'minutesSedentary', 'minutesLightlyActive',
@@ -63,7 +68,7 @@ class TimeSeries:
                 base_date=self.config['base_date'],
                 end_date=self.config['end_date']
             )
-        elif self.config['resource'] in ['bmi', 'fat', 'weight']:
+        elif self.config['resource'] in ['bmi', 'weight']:
             data = self.authorized_client.time_series(
                 resource=f'body/{self.config["resource"]}',
                 base_date=self.config['base_date'],
