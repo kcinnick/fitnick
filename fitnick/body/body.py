@@ -54,6 +54,11 @@ class BodyFat:
         config = set_dates(self.config)
         self.config.update(config)
 
+        #  unlike the 'steps' or 'heart-rate' kind of activities, there are only
+        #  entries for body fat if the authorized user proactively creates them.
+        #  because of this, some unexpected behavior may occur - i.e. querying 1m
+        #  will only return as many entries as there were in that month, not 31.
+
         data = self.authorized_client.make_request(
             method='get',
             url=f'https://api.fitbit.com/{self.authorized_client.API_VERSION}' +
