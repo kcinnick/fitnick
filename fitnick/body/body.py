@@ -3,7 +3,8 @@ from sqlalchemy.orm import sessionmaker
 
 from fitnick.database.database import Database
 from fitnick.time_series import TimeSeries, set_dates
-from fitnick.body.models import WeightRecord, weight_table
+from fitnick.body.models.bodyfat import BodyFatRecord, bodyfat_table
+from fitnick.body.models.weight import WeightRecord, weight_table
 
 from sqlalchemy.dialects.postgresql import insert
 
@@ -59,9 +60,24 @@ class BodyFat:
         #  because of this, some unexpected behavior may occur - i.e. querying 1m
         #  will only return as many entries as there were in that month, not 31.
 
-        data = self.authorized_client.make_request(
+        response = self.authorized_client.make_request(
             method='get',
             url=f'https://api.fitbit.com/{self.authorized_client.API_VERSION}' +
                    f'/user/-/body/log/fat/date/{self.config["base_date"]}/{self.config["end_date"]}.json')
 
-        return data
+        return response
+
+    @staticmethod
+    def parse_response(response):
+        rows = []
+        for record in response['fat']:
+            row = BodyFatRecord(
+                date=record['date'],
+                fat=record['fat'],
+                logId=record['logId'],
+                source=record['source'],
+                time=record['time']
+            )
+            rows.append(row)
+
+        return rows
