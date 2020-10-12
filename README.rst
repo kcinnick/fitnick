@@ -13,11 +13,6 @@ Hacking around on the Python implementation of the Fitbit API with my own Fitbit
 
 I created this for my own curiosity, but if you'd like to use it, you'll have to set the environment variables for ``FITBIT_CONSUMER_KEY``, ``FITBIT_CONSUMER_SECRET``, ``FITBIT_ACCESS_KEY`` and ``FITBIT_REFRESH_TOKEN`` using this tutorial: https://dev.fitbit.com/apps/oauthinteractivetutorial?clientEncodedId=&clientSecret=&redirectUri=https://dev.fitbit.com/&applicationType=SERVER.
 
-Tests passing:
-
-.. image:: https://i.imgur.com/LuRgElm.png
-        :target: https://i.imgur.com/LuRgElm.png
-
 Runs on top of Google Cloud Platform (https://console.cloud.google.com/) and uses `postgresql` as a database.  `PySpark` is used for data analysis & large querying - otherwise, `SQLAlchemy` is sufficient and is used instead.
 
 * Free software: MIT license
