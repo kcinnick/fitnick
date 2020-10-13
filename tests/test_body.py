@@ -33,6 +33,8 @@ EXPECTED_BODYFAT_DATA = [
     BodyFatRecord(date='2020-09-30', fat=18, source='API', time='23:59:59'),
 ]
 
+EXPECTED_BODYFAT_RECORD = BodyFatRecord(date='2019-01-01', fat=18, source='API', time='23:59:59')
+
 
 def test_query_body_weight_time_series():
     data = WeightTimeSeries(config={
@@ -118,3 +120,29 @@ def test_insert_bodyfat():
 
     rows = [row for row in connection.execute(bodyfat_table.select())]
     assert len(rows) == 1
+
+    
+def test_get_bodyfat():
+    body_fat = BodyFat(config={})
+    body_fat.log('2019-01-01', '18.0')
+
+    body_fat = BodyFat(config={
+        'database': 'fitbit_test',
+        'base_date': '2019-01-01',
+        'end_date': '2019-01-02'
+    })
+    rows = body_fat.get_bodyfat_rows()
+
+    assert rows == [EXPECTED_BODYFAT_RECORD]
+
+
+def test_log_bodyfat():
+    body_fat = BodyFat(config={})
+    response = body_fat.log('2019-01-01', '18.0')
+    assert (response['fat'], response['time'], response['date']) == (18, '23:59:59', '2019-01-01')
+
+
+def test_delete_bodyfat():
+    body_fat = BodyFat(config={})
+    response = body_fat.delete('1546387199000')
+    assert response  # if the log was deleted, response will be True

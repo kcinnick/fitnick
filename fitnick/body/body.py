@@ -109,4 +109,48 @@ class BodyFat:
             except IntegrityError:  # record already exists
                 pass
 
-        session.close()
+        session.close() 
+
+    def get_bodyfat_rows(self):
+        response = self.query()
+        parsed_rows = self.parse_response(response)
+
+        return parsed_rows
+
+    def log(self, date, fat):
+        """
+        Logs a new body fat entry to the Fitbit device (not the database).
+        :param date: date to log for
+        :param fat: decimal fat value to log
+        :return:
+        """
+        response = self.authorized_client.make_request(
+            method='post',
+            url=f'https://api.fitbit.com/{self.authorized_client.API_VERSION}' +
+                   f'/user/-/body/log/fat.json',
+            data={'date': date,
+                  'fat': fat}
+        )
+
+        return response['fatLog']
+
+    def delete(self, log_id):
+        """
+        As the documentation states, "A successful request returns a 204 status code with an empty response body."
+        :param log_id: ID of body fat log to delete
+        :return:
+        """
+        from fitbit.exceptions import BadResponse, HTTPNotFound
+
+        try:
+            self.authorized_client.make_request(
+                method='delete',
+                url=f'https://api.fitbit.com/{self.authorized_client.API_VERSION}' +
+                       f'/user/-/body/log/fat/{log_id}.json'
+            )
+        except BadResponse:
+            print('Log deleted.')
+        except HTTPNotFound:
+            print(f'Log with ID {log_id} not found.')
+
+        return True
