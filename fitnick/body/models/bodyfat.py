@@ -27,7 +27,7 @@ bodyfat_table = Table(
     meta,
     Column('date', Date, nullable=False, primary_key=True),
     Column('fat', Integer()),
-    Column('logId', String()),
+    Column('logid', String()),
     Column('source', String()),
     Column('time', String()),
     UniqueConstraint('date', name='date'),
