@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 
 from fitnick.body.body import WeightTimeSeries, BodyFat
-from fitnick.body.models.bodyfat import BodyFatRecord
+from fitnick.body.models.bodyfat import BodyFatRecord, bodyfat_table
 from fitnick.database.database import Database
 
 EXPECTED_WEIGHT_RESPONSE = {'body-weight': [{'dateTime': '2020-09-05', 'value': '176.0'}]}
@@ -102,6 +102,26 @@ def test_parse_bodyfat_response():
     assert parsed_response == EXPECTED_BODYFAT_DATA
 
 
+def test_insert_bodyfat():
+    """
+    Deletes & re-inserts data, then asserts the data was inserted as expected.
+    :return:
+    """
+    database = Database('fitbit_test', 'bodyfat')
+    connection = database.engine.connect()
+
+    connection.execute(bodyfat_table.delete())
+
+    BodyFat(config={
+        'database': 'fitbit_test',
+        'base_date': '2020-09-05',
+        'period': '1d',
+        'table': 'daily'}).insert_data()
+
+    rows = [row for row in connection.execute(bodyfat_table.select())]
+    assert len(rows) == 1
+
+    
 def test_get_bodyfat():
     body_fat = BodyFat(config={})
     body_fat.log('2019-01-01', '18.0')
