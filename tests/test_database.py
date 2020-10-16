@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from fitnick.database.database import Database
-from fitnick.heart_rate.heart_rate import HeartRateTimeSeries
+from fitnick.heart_rate.time_series import HeartRateTimeSeries
 from fitnick.heart_rate.models import heart_daily_table
 
 
