@@ -4,7 +4,7 @@ import os
 import pytest
 
 from fitnick.database.database import Database
-from fitnick.sleep.sleep import SleepTimeSeries
+from fitnick.sleep.time_series import SleepTimeSeries
 from fitnick.sleep.models import sleep_summary_table
 from fitnick.time_series import TimeSeries
 
