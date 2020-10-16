@@ -4,7 +4,8 @@ from decimal import Decimal
 
 import pytest
 
-from fitnick.body.body import WeightTimeSeries, BodyFat
+from fitnick.body.weight.time_series import WeightTimeSeries
+from fitnick.body.bodyfat.bodyfat import BodyFat
 from fitnick.body.models.bodyfat import BodyFatRecord, bodyfat_table
 from fitnick.database.database import Database
 
@@ -121,7 +122,7 @@ def test_insert_bodyfat():
     rows = [row for row in connection.execute(bodyfat_table.select())]
     assert len(rows) == 1
 
-    
+
 def test_get_bodyfat():
     body_fat = BodyFat(config={})
     body_fat.log('2019-01-01', '18.0')
