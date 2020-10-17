@@ -90,7 +90,6 @@ def test_query_heart_rate_zone_time_series():
         'base_date': '2020-09-05',
         'end_date': '2020-09-05'}
     ).query()
-
     data.pop('activities-heart-intraday')  # quickfix for not yet parsing intraday heart data
 
     assert data == EXPECTED_DATA
@@ -143,3 +142,11 @@ def test_insert_intraday_data():
 
     rows = heart_rate_zone.insert_intraday_data()
     assert len(rows) == 1381
+
+
+@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
+def test_plot_rolling_average():
+    hrz = HeartRateTimeSeries(config={'database': 'fitbit_test',
+                                      'base_date': '2020-10-01',
+                                      'end_date': '2020-10-15'})
+    hrz.plot_rolling_average()

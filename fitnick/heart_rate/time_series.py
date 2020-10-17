@@ -110,3 +110,31 @@ class HeartRateTimeSeries(TimeSeries):
         rows = self.insert_data(db)
 
         return rows
+
+    def plot_rolling_average(self, days=3):
+        import matplotlib.pyplot as plt
+        from pyspark.sql import functions as F
+        from pyspark.sql.window import Window
+
+        from fitnick.base.base import get_df_from_db, create_spark_session
+
+        spark_session = create_spark_session()
+        df = get_df_from_db(spark_session, 'fitbit', 'heart', 'daily')
+        agg_df = df.groupBy(F.col('date')).agg(F.sum('calories')).alias('calories')
+        agg_df = agg_df.filter(F.col('date').between(self.config['base_date'], self.config['end_date']))
+
+        window_spec = Window.orderBy(F.col("date")).rowsBetween(-days, 0)
+        agg_df = agg_df.withColumn(f'{days}DMA', F.avg("calories.sum(calories)").over(window_spec))
+        agg_df = agg_df.toPandas()
+
+        agg_df[f'{days}DMA'] = agg_df[f'{days}DMA'].astype(float)
+        agg_df['sum(calories)'] = agg_df['sum(calories)'].astype(float)
+        agg_df.plot(
+            kind='line',
+            x='date',
+            y=[f'{days}DMA', 'sum(calories)'],
+        )
+
+        plt.show()
+
+        return
