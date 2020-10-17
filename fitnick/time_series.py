@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, date
 import os
+import re
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
@@ -84,14 +85,14 @@ class TimeSeries:
         Extracts, transforms & loads the data specified by the self.config dict.
         :return:
         """
-
+        self.validate_input()
         data = self.query()
         parsed_rows = self.parse_response(data)  # method should be implemented in inheriting class
 
         # create a session connected to the database in config
-
+        session = sessionmaker(bind=database.engine)()
         for row in tqdm(parsed_rows):
-            session = sessionmaker(bind=database.engine)()
+            session.expunge_all()
             try:
                 session.add(row)
                 session.commit()
@@ -182,3 +183,21 @@ class TimeSeries:
             print('Resource {} does not support plotting yet. Bug the developer!'.format(self.config['resource']))
 
         return
+
+    def validate_input(self):
+        try:
+            assert re.match('\d{4}-\d{2}-\d{2}', self.config['base_date']).group()
+        except AttributeError as e:
+            print('Start date must be formatted as YYYY/MM/DD.')
+            raise e
+
+        if 'end_date' in self.config.keys():
+            try:
+                assert re.match('\d{4}-\d{2}-\d{2}', self.config['end_date']).group()
+            except AttributeError as e:
+                print('End date must be formatted as YYYY/MM/DD.')
+                raise e
+        elif 'period' in self.config.keys():
+            pass
+
+        return True

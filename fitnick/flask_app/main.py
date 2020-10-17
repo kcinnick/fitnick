@@ -61,7 +61,17 @@ def get_heart_rate_zone_date():
     rows = []
 
     if request.method == 'POST':
-        rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit', target_date=form.date._value())
+        try:
+            rows = [i for i in heart_rate_zone.get_heart_rate_zone_for_day(
+                database='fitbit', target_date=form.date._value())]
+        except AttributeError as e:  # the date regex check failed
+            return render_template(
+                "index.html",
+                value="""There was an error: {}.        
+                Check to make sure you entered a properly formatted date.""".format(e),
+                rows=rows,
+                form=form
+            )
 
     return render_template('index.html', form=form, rows=rows)
 
