@@ -186,14 +186,14 @@ class TimeSeries:
 
     def validate_input(self):
         try:
-            assert re.match('\d{4}-\d{2}-\d{2}', self.config['base_date']).group()
+            assert re.match(r'\d{4}-\d{2}-\d{2}', self.config['base_date']).group()
         except AttributeError as e:
             print('Start date must be formatted as YYYY/MM/DD.')
             raise e
 
         if 'end_date' in self.config.keys():
             try:
-                assert re.match('\d{4}-\d{2}-\d{2}', self.config['end_date']).group()
+                assert re.match(r'\d{4}-\d{2}-\d{2}', self.config['end_date']).group()
             except AttributeError as e:
                 print('End date must be formatted as YYYY/MM/DD.')
                 raise e
