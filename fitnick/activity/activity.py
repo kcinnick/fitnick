@@ -1,5 +1,8 @@
+from sqlalchemy.orm import sessionmaker
+from tqdm import tqdm
+
 from fitnick.base.base import get_authorized_client
-from fitnick.activity.models.activity import ActivityLogEntry
+from fitnick.activity.models.activity import ActivityLogRecord
 
 
 class Activity:
@@ -24,3 +27,29 @@ class Activity:
         )
 
         return response
+
+    @staticmethod
+    def parse_activity_log(response):
+        rows = []
+
+        for log in response['activities']:
+            parsed_log = ActivityLogRecord(
+                activity_id=log['activityId'], activity_name=log['activityParentName'], log_id=log['logId'],
+                calories=log['calories'], distance=log['distance'], duration=log['duration'],
+                duration_minutes=log['duration'] / 60000, start_date=log['startDate'], start_time=log['startTime'],
+                steps=log['steps'])
+            rows.append(parsed_log)
+
+        return rows
+
+    @staticmethod
+    def insert_data(database, parsed_rows):
+        session = sessionmaker(bind=database.engine)()
+        for row in tqdm(parsed_rows):
+            session.expunge_all()
+            session.add(row)
+            session.commit()
+
+        session.close()
+
+        return parsed_rows
