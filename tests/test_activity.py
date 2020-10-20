@@ -1,5 +1,6 @@
 from fitnick.activity.activity import Activity  # ugly import for now, but there are bigger fish to fry..
-from fitnick.activity.models.activity import ActivityLogRecord
+from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
+from fitnick.database.database import Database
 
 EXPECTED_DAILY_ACTIVITY_RESPONSE = {
     'activities': [
@@ -68,3 +69,16 @@ def test_parse_daily_activity_summary():
     rows = activity.parse_activity_log(EXPECTED_DAILY_ACTIVITY_RESPONSE)
 
     assert rows == EXPECTED_DAILY_ACTIVITY_ROWS
+
+
+def test_insert_daily_activity_summary():
+    database = Database('fitbit_test', 'activity')
+    connection = database.engine.connect()
+
+    connection.execute(activity_log_table.delete())
+    activity = Activity(
+        config={'database': 'fitbit_test',
+                'base_date': '2020-10-01'}
+    )
+    rows = activity.insert_data(database, EXPECTED_DAILY_ACTIVITY_ROWS)
+    assert len(rows) == 5
