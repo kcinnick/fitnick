@@ -1,8 +1,10 @@
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from tqdm import tqdm
 
 from fitnick.base.base import get_authorized_client
-from fitnick.activity.models.activity import ActivityLogRecord
+from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
 
 
 class Activity:
@@ -45,11 +47,23 @@ class Activity:
     @staticmethod
     def insert_data(database, parsed_rows):
         session = sessionmaker(bind=database.engine)()
-        for row in tqdm(parsed_rows):
-            session.expunge_all()
-            session.add(row)
-            session.commit()
-
-        session.close()
+        for row in parsed_rows:
+            insert_statement = insert(activity_log_table).values(
+                activity_id=row.activity_id,
+                activity_name=row.activity_name,
+                log_id=row.log_id,
+                calories=row.calories,
+                distance=row.distance,
+                duration=row.duration,
+                duration_minutes=row.duration_minutes,
+                start_date=row.start_date,
+                start_time=row.start_time,
+                steps=row.steps)
+            try:
+                session.execute(insert_statement)
+                session.commit()
+            except IntegrityError:  # record already exists
+                print(f'Log {row.log_id} already exists.')
+                pass
 
         return parsed_rows
