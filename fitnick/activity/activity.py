@@ -63,7 +63,8 @@ class Activity:
                 session.execute(insert_statement)
                 session.commit()
             except IntegrityError:  # record already exists
+                session.rollback()
                 print(f'Log {row.log_id} already exists.')
-                pass
+                continue
 
         return parsed_rows
