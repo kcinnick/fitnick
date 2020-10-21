@@ -1,10 +1,10 @@
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
-from tqdm import tqdm
 
 from fitnick.base.base import get_authorized_client
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
+from fitnick.activity.models.calories import Calories, calories_table
 
 
 class Activity:
@@ -45,7 +45,7 @@ class Activity:
         return rows
 
     @staticmethod
-    def insert_data(database, parsed_rows):
+    def insert_log_data(database, parsed_rows):
         session = sessionmaker(bind=database.engine)()
         for row in parsed_rows:
             insert_statement = insert(activity_log_table).values(
@@ -68,3 +68,40 @@ class Activity:
                 continue
 
         return parsed_rows
+
+    def query_calorie_summary(self):
+        return self.query_daily_activity_summary()['summary']
+
+    @staticmethod
+    def parse_calorie_summary(date, response):
+        row = Calories(
+            date=date, total=response['caloriesOut'], calories_bmr=response['caloriesBMR'],
+            activity_calories=response['activityCalories']
+        )
+
+        return row
+
+    @staticmethod
+    def insert_calorie_data(database, parsed_row):
+        session = sessionmaker(bind=database.engine)()
+
+        insert_statement = insert(calories_table).values(
+            date=parsed_row.date,
+            total=parsed_row.total,
+            calories_bmr=parsed_row.calories_bmr,
+            activity_calories=parsed_row.activity_calories
+        )
+
+        update_statement = insert_statement.on_conflict_do_update(
+            constraint='date',
+            set_={
+                'date': parsed_row.type,
+                'total': parsed_row.minutes,
+                'calories_bmr': parsed_row.calories_bmr,
+                'activity_calories': parsed_row.activity_calories
+            })
+
+        session.execute(update_statement)
+        session.commit()
+
+        return parsed_row

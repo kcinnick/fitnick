@@ -1,5 +1,6 @@
 from fitnick.activity.activity import Activity  # ugly import for now, but there are bigger fish to fry..
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
+from fitnick.activity.models.calories import Calories, CaloriesIntraday, calories_table
 from fitnick.database.database import Database
 
 EXPECTED_DAILY_ACTIVITY_RESPONSE = {
@@ -71,6 +72,16 @@ def test_parse_daily_activity_summary():
     assert rows == EXPECTED_DAILY_ACTIVITY_ROWS
 
 
+def test_query_calorie_summary():
+    activity = Activity(
+        config={'database': 'fitbit_test',
+                'base_date': '2020-10-01'}
+    )
+    response = activity.query_calorie_summary()
+
+    assert response == EXPECTED_DAILY_ACTIVITY_RESPONSE['summary']
+
+
 def test_insert_daily_activity_summary():
     database = Database('fitbit_test', 'activity')
     connection = database.engine.connect()
@@ -80,5 +91,23 @@ def test_insert_daily_activity_summary():
         config={'database': 'fitbit_test',
                 'base_date': '2020-10-01'}
     )
-    rows = activity.insert_data(database, EXPECTED_DAILY_ACTIVITY_ROWS)
+    rows = activity.insert_log_data(database, EXPECTED_DAILY_ACTIVITY_ROWS)
     assert len(rows) == 5
+
+
+def test_insert_calorie_data():
+    database = Database('fitbit_test', 'activity')
+    connection = database.engine.connect()
+
+    connection.execute(calories_table.delete())
+    activity = Activity(
+        config={'database': 'fitbit_test',
+                'base_date': '2020-10-01'}
+    )
+    raw_data = activity.query_calorie_summary()
+    row = activity.parse_calorie_summary('2020-10-01', raw_data)
+
+    assert row.date == '2020-10-01'
+    assert row.total == 3116
+    assert row.calories_bmr == 1838
+    assert row.activity_calories == 1467
