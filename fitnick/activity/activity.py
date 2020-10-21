@@ -93,10 +93,10 @@ class Activity:
         )
 
         update_statement = insert_statement.on_conflict_do_update(
-            constraint='date',
+            index_elements=['date'],
             set_={
-                'date': parsed_row.type,
-                'total': parsed_row.minutes,
+                'date': parsed_row.date,
+                'total': parsed_row.total,
                 'calories_bmr': parsed_row.calories_bmr,
                 'activity_calories': parsed_row.activity_calories
             })
