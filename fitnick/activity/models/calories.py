@@ -6,11 +6,25 @@ Base = declarative_base()
 
 
 class Calories(Base):
-    __tablename__ = 'daily'
+    __tablename__ = 'calories'
     date = Column('date', Date, nullable=False, primary_key=True)
-    value = Column('value', Integer())
+    total = Column('total', Integer())
+    calories_bmr = Column('calories_bmr', Integer())
+    activity_calories = Column('activity_calories', Integer())
     UniqueConstraint('date', name='date')
-    schema = 'calories'
+    schema = 'activity'
+
+
+calories_table = Table(
+    'calories',
+    meta,
+    Column('date', Date),
+    Column('total', Integer()),
+    Column('calories_bmr', Numeric(10, 5)),
+    Column('activity_calories', Numeric(10, 5)),
+    UniqueConstraint('date', name='date'),
+    schema='activity'
+)
 
 
 class CaloriesIntraday(Base):
