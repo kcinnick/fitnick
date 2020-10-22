@@ -12,6 +12,13 @@ class WeightRecord(Base):
     UniqueConstraint('date', name='date')
     schema = 'weight'
 
+    def __eq__(self, other):
+        return self.date, self.pounds == other.date, other.pounds
+
+    def __str__(self):
+        return f"{self.date}, {self.pounds}"
+
+
 
 weight_table = Table(
     'daily',
