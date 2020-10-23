@@ -44,6 +44,18 @@ class Activity:
 
         return rows
 
+    def query_calorie_summary(self):
+        return self.query_daily_activity_summary()['summary']
+
+    @staticmethod
+    def parse_calorie_summary(date, response):
+        row = Calories(
+            date=date, total=response['caloriesOut'], calories_bmr=response['caloriesBMR'],
+            activity_calories=response['activityCalories']
+        )
+
+        return row
+
     @staticmethod
     def insert_log_data(database, parsed_rows):
         session = sessionmaker(bind=database.engine)()
@@ -68,18 +80,6 @@ class Activity:
                 continue
 
         return parsed_rows
-
-    def query_calorie_summary(self):
-        return self.query_daily_activity_summary()['summary']
-
-    @staticmethod
-    def parse_calorie_summary(date, response):
-        row = Calories(
-            date=date, total=response['caloriesOut'], calories_bmr=response['caloriesBMR'],
-            activity_calories=response['activityCalories']
-        )
-
-        return row
 
     @staticmethod
     def insert_calorie_data(database, parsed_row):
