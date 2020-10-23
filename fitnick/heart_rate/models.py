@@ -17,6 +17,12 @@ class HeartDaily(Base):
     UniqueConstraint('type', 'minutes', 'date', 'calories', name='daily_type_minutes_date_calories')
     schema = 'heart'
 
+    def __eq__(self, other):
+        return self.date, self.minutes == other.date, other.minutes
+
+    def __str__(self):
+        return f"{self.date}, {self.type}, {self.calories}"
+
 
 heart_daily_table = Table(
     'daily',
@@ -41,6 +47,9 @@ class HeartIntraday(Base):
 
     def __str__(self):
         return f"{self.date}, {self.time}, {self.value}"
+
+    def __eq__(self, other):
+        return self.date, self.time == other.date, other.time
 
 
 heart_intraday_table = Table(

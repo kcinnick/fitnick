@@ -14,6 +14,13 @@ class Calories(Base):
     UniqueConstraint('date', name='date')
     schema = 'activity'
 
+    def __eq__(self, other):
+        return self.date, self.total, self.calories_bmr == other.date, other.total, other.calories_bmr
+
+    def __str__(self):
+        return f"{self.date}, {self.total}, {self.calories_bmr}, {self.activity_calories}"
+
+
 
 calories_table = Table(
     'calories',

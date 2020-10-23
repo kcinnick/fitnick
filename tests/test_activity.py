@@ -106,8 +106,6 @@ def test_insert_calorie_data():
     )
     raw_data = activity.query_calorie_summary()
     row = activity.parse_calorie_summary('2020-10-01', raw_data)
+    inserted_row = activity.insert_calorie_data(database, row)
 
-    assert row.date == '2020-10-01'
-    assert row.total == 3116
-    assert row.calories_bmr == 1838
-    assert row.activity_calories == 1467
+    assert inserted_row == Calories(date='2020-10-01', total=3116, calories_bmr=1838, activity_calories=1467)
