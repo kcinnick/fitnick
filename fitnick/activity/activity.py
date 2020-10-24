@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from fitnick.base.base import get_authorized_client
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
 from fitnick.activity.models.calories import Calories, calories_table
+from fitnick.database.database import Database
 
 
 class Activity:
@@ -105,3 +106,33 @@ class Activity:
         session.commit()
 
         return parsed_row
+
+    def gather_calories_for_day(self, day='2020-10-22'):
+        self.config.update({'base_date': day})
+
+        raw_calorie_summary = self.query_calorie_summary()
+        row = self.parse_calorie_summary(self.config['base_date'], raw_calorie_summary)
+        database = Database(self.config['database'], 'activity')
+        self.insert_calorie_data(database, row)
+
+        return row
+
+    def backfill_calories(self, period: int = 90):
+        """
+        Backfills a database from the current day.
+        Example: if run on 2020-09-06 with period=90, the database will populate for 2020-06-08 - 2020-09-06
+        :param period: Number of days to look backward.
+        :return:
+        """
+        from datetime import date, timedelta
+        import pandas as pd
+        from tqdm import tqdm
+
+        self.config['base_date'] = (date.today() - timedelta(days=period)).strftime('%Y-%m-%d')
+        self.config['end_date'] = (date.today() - timedelta(days=1)).strftime('%Y-%m-%d')  # exclude current day
+
+        date_range = pd.date_range(start=self.config['base_date'], end=self.config['end_date'], freq='D')
+        date_range = [str(i).split()[0] for i in date_range]  # converts to str & removes unnecessary time string
+
+        for day in tqdm(date_range):
+            self.gather_calories_for_day(day)
