@@ -109,3 +109,18 @@ def test_insert_calorie_data():
     inserted_row = activity.insert_calorie_data(database, row)
 
     assert inserted_row == Calories(date='2020-10-01', total=3116, calories_bmr=1838, activity_calories=1467)
+
+
+def test_backfill_calories():
+    database = Database('fitbit_test', 'activity')
+    connection = database.engine.connect()
+    activity = Activity(
+        config={'database': 'fitbit_test'}
+    )
+
+    connection.execute(calories_table.delete())
+    rows = [i for i in connection.execute(calories_table.select())]
+    assert len(rows) == 0
+
+    activity.backfill_calories(7)
+    assert len([i for i in connection.execute(calories_table.select())]) == 7
