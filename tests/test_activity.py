@@ -50,6 +50,8 @@ EXPECTED_DAILY_ACTIVITY_ROWS = [
     ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=34687447116, calories=481, distance=2.876452, duration=3402000, duration_minutes=56.7, start_date='2020-10-01', start_time='22:10', steps=6012)
 ]
 
+EXPECTED_COMPARE_CALORIE_ROWS = []
+
 
 def test_query_daily_activity_summary():
     activity = Activity(
@@ -122,5 +124,14 @@ def test_backfill_calories():
     rows = [i for i in connection.execute(calories_table.select())]
     assert len(rows) == 0
 
-    activity.backfill_calories(7)
-    assert len([i for i in connection.execute(calories_table.select())]) == 7
+    activity.backfill_calories(14)
+    assert len([i for i in connection.execute(calories_table.select())]) == 14
+
+
+def test_compare_calories_across_week():
+    activity = Activity(
+        config={'database': 'fitbit_test'}
+    )
+
+    rows = activity.compare_calories_across_week()
+    assert rows == (19985, 19196)
