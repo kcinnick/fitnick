@@ -1,3 +1,7 @@
+import os
+
+import pytest
+
 from fitnick.activity.activity import Activity  # ugly import for now, but there are bigger fish to fry..
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
 from fitnick.activity.models.calories import Calories, CaloriesIntraday, calories_table
@@ -49,6 +53,8 @@ EXPECTED_DAILY_ACTIVITY_ROWS = [
     ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=34684730042, calories=104, distance=0.440571, duration=815000, duration_minutes=13.583333333333334, start_date='2020-10-01', start_time='19:01', steps=977),
     ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=34687447116, calories=481, distance=2.876452, duration=3402000, duration_minutes=56.7, start_date='2020-10-01', start_time='22:10', steps=6012)
 ]
+
+EXPECTED_COMPARE_CALORIE_ROWS = []
 
 
 def test_query_daily_activity_summary():
@@ -109,3 +115,28 @@ def test_insert_calorie_data():
     inserted_row = activity.insert_calorie_data(database, row)
 
     assert inserted_row == Calories(date='2020-10-01', total=3116, calories_bmr=1838, activity_calories=1467)
+
+
+def test_backfill_calories():
+    database = Database('fitbit_test', 'activity')
+    connection = database.engine.connect()
+    activity = Activity(
+        config={'database': 'fitbit_test'}
+    )
+
+    connection.execute(calories_table.delete())
+    rows = [i for i in connection.execute(calories_table.select())]
+    assert len(rows) == 0
+
+    activity.backfill_calories(14)
+    assert len([i for i in connection.execute(calories_table.select())]) == 14
+
+
+@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
+def test_compare_calories_across_week():
+    activity = Activity(
+        config={'database': 'fitbit_test'}
+    )
+
+    rows = activity.compare_calories_across_week()
+    assert rows == (19985, 19196)

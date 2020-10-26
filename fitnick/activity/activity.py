@@ -2,9 +2,12 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from fitnick.base.base import get_authorized_client
+from pyspark.sql import functions as F
+
+from fitnick.base.base import get_authorized_client, get_df_from_db, create_spark_session
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
 from fitnick.activity.models.calories import Calories, calories_table
+from fitnick.database.database import Database
 
 
 class Activity:
@@ -24,7 +27,7 @@ class Activity:
         response = self.authorized_client.make_request(
             method='get',
             url=f'https://api.fitbit.com/{self.authorized_client.API_VERSION}' +
-                   f'/user/-/activities/date/{self.config["base_date"]}.json',
+                f'/user/-/activities/date/{self.config["base_date"]}.json',
             data={}
         )
 
@@ -105,3 +108,96 @@ class Activity:
         session.commit()
 
         return parsed_row
+
+    def gather_calories_for_day(self, day='2020-10-22'):
+        self.config.update({'base_date': day})
+
+        raw_calorie_summary = self.query_calorie_summary()
+        row = self.parse_calorie_summary(self.config['base_date'], raw_calorie_summary)
+        database = Database(self.config['database'], 'activity')
+        self.insert_calorie_data(database, row)
+
+        return row
+
+    def backfill_calories(self, period: int = 90):
+        """
+        Backfills a database from the current day.
+        Example: if run on 2020-09-06 with period=90, the database will populate for 2020-06-08 - 2020-09-06
+        :param period: Number of days to look backward.
+        :return:
+        """
+        from datetime import date, timedelta
+        import pandas as pd
+        from tqdm import tqdm
+
+        self.config['base_date'] = (date.today() - timedelta(days=period)).strftime('%Y-%m-%d')
+        self.config['end_date'] = (date.today() - timedelta(days=1)).strftime('%Y-%m-%d')  # exclude current day
+
+        date_range = pd.date_range(start=self.config['base_date'], end=self.config['end_date'], freq='D')
+        date_range = [str(i).split()[0] for i in date_range]  # converts to str & removes unnecessary time string
+
+        for day in tqdm(date_range):
+            self.gather_calories_for_day(day)
+
+    def compare_calories_across_week(self, start_day=285, days_through_week=6):
+        """
+        This method compares calories burned between the start day's week & the week before.
+        :param start_day: int, day of year to base comparison on.
+        :param days_through_week: int, days into current week to compare against
+
+        There will always be 7 days of data for the last week, but when the current week is
+        in progress, we need to tell the method how many days worth of last week's data to
+        compare against so that it'll be a 1:1 comparison.
+
+        mon: 1, tues: 2, weds: 3, thurs:4, fri: 5, sat: 6
+        0 is not a valid input, because there are no completed days of
+        calories to compare against before a day in that week ends. i.e.,
+        there is no total Sunday data to compare against last Sunday until
+        it's Monday.
+
+        :return: tuple containing the summed calories for the week of the start_date & the week preceding.
+        """
+        spark_session = create_spark_session()
+        df = get_df_from_db(
+            database=self.config['database'], schema='activity', table='calories',
+            spark_session=spark_session
+        )
+        df = df.withColumn('day_of_year', F.dayofyear(df.date))
+
+        last_week_dates = (start_day, start_day + days_through_week)
+        next_week_dates = (
+            last_week_dates[1] + 1,
+            last_week_dates[0] + (days_through_week * 2)  # results are inclusive, so we move on to the next day
+                     )
+
+        last_week_days = df.where(df.day_of_year.between(
+            last_week_dates[0],
+            last_week_dates[1])
+        )
+
+        next_week_days = df.where(df.day_of_year.between(
+            next_week_dates[0],
+            next_week_dates[1])
+        )
+
+        # where was I at this point last week?
+        last_week_at_this_point_rows = last_week_days.sort(F.asc('day_of_year')).take(days_through_week)
+        next_week_at_this_point_rows = next_week_days.sort(F.asc('day_of_year')).take(days_through_week)
+
+        sum_calories_last_week = sum([i.total for i in last_week_at_this_point_rows])
+        sum_calories_next_week = sum([i.total for i in next_week_at_this_point_rows])
+
+        print("You had burned {} calories at this point last week, compared to {} the following week.".format(
+            sum_calories_last_week, sum_calories_next_week)
+        )
+
+        if sum_calories_last_week > sum_calories_next_week:
+            print("That's {} less calories burnt this week. Get moving!".format(
+                abs(sum_calories_last_week - sum_calories_next_week)
+            ))
+        else:
+            print("That's {} more calories burnt this week. Good work!".format(
+                abs(sum_calories_next_week - sum_calories_last_week)
+            ))
+
+        return sum_calories_next_week, sum_calories_last_week
