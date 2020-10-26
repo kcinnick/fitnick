@@ -187,7 +187,7 @@ class Activity:
         sum_calories_last_week = sum([i.total for i in last_week_at_this_point_rows])
         sum_calories_next_week = sum([i.total for i in next_week_at_this_point_rows])
 
-        print("You had burned {} calories at this point last week, compared to {} the next week.".format(
+        print("You had burned {} calories at this point last week, compared to {} the following week.".format(
             sum_calories_last_week, sum_calories_next_week)
         )
 

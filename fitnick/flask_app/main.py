@@ -3,6 +3,7 @@ import os
 
 from flask import Flask, make_response, render_template, request
 from flask_wtf import FlaskForm
+from sqlalchemy.orm.exc import DetachedInstanceError
 from wtforms import StringField
 
 from fitnick.database.database import Database
@@ -23,11 +24,15 @@ def index():
     heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
     rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
     form = DateForm(request.form)
-    return render_template(
-        "index.html", value='Here\'s the latest heart rate data in the database.',
-        rows=rows,
-        form=form
-    )
+    while True:
+        try:
+            return render_template(
+                "index.html", value='Here\'s the latest heart rate data in the database.',
+                rows=rows,
+                form=form
+            )
+        except DetachedInstanceError:
+            continue
 
 
 @app.route("/get_heart_rate_zone_today", methods=['GET', 'POST'])
@@ -72,8 +77,11 @@ def get_heart_rate_zone_date():
                 rows=rows,
                 form=form
             )
-
-    return render_template('index.html', form=form, rows=rows)
+    while True:
+        try:
+            return render_template('index.html', form=form, rows=rows)
+        except DetachedInstanceError:
+            continue
 
 
 @app.route('/<page_name>')
