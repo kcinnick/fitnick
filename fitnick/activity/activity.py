@@ -1,3 +1,5 @@
+import datetime
+
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -139,10 +141,10 @@ class Activity:
         for day in tqdm(date_range):
             self.gather_calories_for_day(day)
 
-    def compare_calories_across_week(self, start_day=285, days_through_week=6):
+    def compare_calories_across_week(self, week_start_date='2020-10-11', days_through_week=6):
         """
         This method compares calories burned between the start day's week & the week before.
-        :param start_day: int, day of year to base comparison on.
+        :param week_start_date: YYYY-MM-DD string to base comparison on.
         :param days_through_week: int, days into current week to compare against
 
         There will always be 7 days of data for the last week, but when the current week is
@@ -164,9 +166,11 @@ class Activity:
         )
         df = df.withColumn('day_of_year', F.dayofyear(df.date))
 
+        start_day = datetime.datetime.strptime(week_start_date, '%Y-%m-%d').timetuple().tm_yday
+
         last_week_dates = (start_day, start_day + days_through_week)
         next_week_dates = (
-            last_week_dates[1] + 1,
+            last_week_dates[1] + 1,  # day after last_week_date's end date.
             last_week_dates[0] + (days_through_week * 2)  # results are inclusive, so we move on to the next day
                      )
 
