@@ -139,4 +139,4 @@ def test_compare_calories_across_week():
     )
 
     rows = activity.compare_calories_across_week()
-    assert rows == (19985, 19196)
+    assert rows == (19985, 19686)
