@@ -6,6 +6,7 @@ from flask_wtf import FlaskForm
 from sqlalchemy.orm.exc import DetachedInstanceError
 from wtforms import StringField
 
+from fitnick.activity.activity import Activity
 from fitnick.database.database import Database
 from fitnick.heart_rate.time_series import HeartRateTimeSeries
 from fitnick.heart_rate.models import heart_daily_table
@@ -22,17 +23,17 @@ class DateForm(FlaskForm):
 @app.route("/", methods=['GET'])
 def index():
     heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
-    rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
+    statement = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
+    rows = [i for i in Database(database='fitbit', schema='heart').engine.execute(statement)]
+    if len(rows) == 0:
+        rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
     form = DateForm(request.form)
-    while True:
-        try:
-            return render_template(
-                "index.html", value='Here\'s the latest heart rate data in the database.',
-                rows=rows,
-                form=form
-            )
-        except DetachedInstanceError:
-            continue
+    if request.method == 'GET':
+        return render_template(
+            "index.html",
+            rows=rows,
+            form=form
+        )
 
 
 @app.route("/get_heart_rate_zone_today", methods=['GET', 'POST'])
@@ -66,6 +67,7 @@ def get_heart_rate_zone_date():
     rows = []
 
     if request.method == 'POST':
+        print('70P')
         try:
             rows = [i for i in heart_rate_zone.get_heart_rate_zone_for_day(
                 database='fitbit', target_date=form.date._value())]
@@ -79,9 +81,24 @@ def get_heart_rate_zone_date():
             )
     while True:
         try:
+            print('83G')
             return render_template('index.html', form=form, rows=rows)
         except DetachedInstanceError:
             continue
+
+
+@app.route("/activity", methods=['GET', 'POST'])
+def activity():
+    activity = Activity(config={'database': 'fitbit'})
+    form = DateForm(request.form)
+    rows = []
+
+    if request.method == 'POST':
+        rows = [i for i in activity.gather_calories_for_day(day='2020-10-26')]
+    else:
+        print('GET')
+
+    return render_template('activity.html', form=None)
 
 
 @app.route('/<page_name>')
