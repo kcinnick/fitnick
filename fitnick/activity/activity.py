@@ -112,7 +112,7 @@ class Activity:
 
         return parsed_row
 
-    def gather_calories_for_day(self, day='2020-10-22'):
+    def get_calories_for_day(self, day='2020-10-22'):
         self.config.update({'base_date': day})
 
         raw_calorie_summary = self.query_calorie_summary()
@@ -140,7 +140,7 @@ class Activity:
         date_range = [str(i).split()[0] for i in date_range]  # converts to str & removes unnecessary time string
 
         for day in tqdm(date_range):
-            self.gather_calories_for_day(day)
+            self.get_calories_for_day(day)
 
     def compare_calories_across_week(self, start_date, days_through_week):
         """
