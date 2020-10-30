@@ -153,6 +153,31 @@ body > section {
         <nav>
 			<ul>
 				<li><a href="/">Home</a>
-                <li><a href="/activity">Activity</a></li>
+                <li><a href="/get_activity_today">Activity</a></li>
 			</ul>
 		</nav>
+
+
+    <form method="POST" action="/get_activity_today">
+        <center>
+        Get activity data for a specific day. Format is YYYY-MM-DD.
+
+    {{ form.date }}
+    <input type="submit" value="Go">
+<br>
+        <br>
+        <br>
+
+            	<section id="pageContent">
+
+             <table>
+                 <tr> <th>Date</th> <th>Total</th> <th>Calories BMR</th> <th>Activity Calories</th></tr>
+                <tr class="even"> <td>{{ row.date }}</td> <td>{{ row.total }}</td> <td>{{ row.calories_bmr }}</td> <td>{{ row.activity_calories }}</td></tr>
+             </table>
+                </section>
+
+        </center>
+</form>
+
+    </body>
+</html>
