@@ -1,3 +1,6 @@
+import datetime
+from datetime import timedelta
+
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -109,7 +112,7 @@ class Activity:
 
         return parsed_row
 
-    def gather_calories_for_day(self, day='2020-10-22'):
+    def get_calories_for_day(self, day='2020-10-22'):
         self.config.update({'base_date': day})
 
         raw_calorie_summary = self.query_calorie_summary()
@@ -137,12 +140,12 @@ class Activity:
         date_range = [str(i).split()[0] for i in date_range]  # converts to str & removes unnecessary time string
 
         for day in tqdm(date_range):
-            self.gather_calories_for_day(day)
+            self.get_calories_for_day(day)
 
-    def compare_calories_across_week(self, start_day=285, days_through_week=6):
+    def compare_calories_across_week(self, start_date, days_through_week):
         """
         This method compares calories burned between the start day's week & the week before.
-        :param start_day: int, day of year to base comparison on.
+        :param start_date: %Y-%m-%d string, date to base comparison on.
         :param days_through_week: int, days into current week to compare against
 
         There will always be 7 days of data for the last week, but when the current week is
@@ -162,42 +165,27 @@ class Activity:
             database=self.config['database'], schema='activity', table='calories',
             spark_session=spark_session
         )
+
         df = df.withColumn('day_of_year', F.dayofyear(df.date))
-
-        last_week_dates = (start_day, start_day + days_through_week)
-        next_week_dates = (
-            last_week_dates[1] + 1,
-            last_week_dates[0] + (days_through_week * 2)  # results are inclusive, so we move on to the next day
-                     )
-
-        last_week_days = df.where(df.day_of_year.between(
-            last_week_dates[0],
-            last_week_dates[1])
+        start_date_datetime = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+        first_week_df = df.where(df.date.between(
+            start_date,
+            start_date_datetime + timedelta(days_through_week - 1))
         )
 
-        next_week_days = df.where(df.day_of_year.between(
-            next_week_dates[0],
-            next_week_dates[1])
+        next_week_df = df.where(df.date.between(
+            start_date_datetime + timedelta(days=7),
+            start_date_datetime + timedelta(days=7) + timedelta(days=days_through_week - 1))
         )
 
-        # where was I at this point last week?
-        last_week_at_this_point_rows = last_week_days.sort(F.asc('day_of_year')).take(days_through_week)
-        next_week_at_this_point_rows = next_week_days.sort(F.asc('day_of_year')).take(days_through_week)
+        first_week_total = first_week_df.select(F.sum(first_week_df.total)).collect()[0][0]
+        next_week_total = next_week_df.select(F.sum(next_week_df.total)).collect()[0][0]
 
-        sum_calories_last_week = sum([i.total for i in last_week_at_this_point_rows])
-        sum_calories_next_week = sum([i.total for i in next_week_at_this_point_rows])
-
-        print("You had burned {} calories at this point last week, compared to {} the following week.".format(
-            sum_calories_last_week, sum_calories_next_week)
+        print(
+            "You had burned {} calories at this point during the week of {}, compared to {} the following week.".format(
+                first_week_total,
+                start_date,
+                next_week_total)
         )
 
-        if sum_calories_last_week > sum_calories_next_week:
-            print("That's {} less calories burnt this week. Get moving!".format(
-                abs(sum_calories_last_week - sum_calories_next_week)
-            ))
-        else:
-            print("That's {} more calories burnt this week. Good work!".format(
-                abs(sum_calories_next_week - sum_calories_last_week)
-            ))
-
-        return sum_calories_next_week, sum_calories_last_week
+        return next_week_total, first_week_total

@@ -128,15 +128,15 @@ def test_backfill_calories():
     rows = [i for i in connection.execute(calories_table.select())]
     assert len(rows) == 0
 
-    activity.backfill_calories(14)
-    assert len([i for i in connection.execute(calories_table.select())]) == 14
+    activity.backfill_calories(3)
+    assert len([i for i in connection.execute(calories_table.select())]) == 3
 
 
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_compare_calories_across_week():
     activity = Activity(
-        config={'database': 'fitbit_test'}
+        config={'database': 'fitbit'}
     )
 
-    rows = activity.compare_calories_across_week()
+    rows = activity.compare_calories_across_week('2020-10-11', 6)
     assert rows == (19985, 19196)

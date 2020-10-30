@@ -156,31 +156,26 @@ body > section {
                 <li><a href="/get_activity_today">Activity</a></li>
 			</ul>
 		</nav>
-<br>
-        <br>
-        <br>
-	<section id="pageContent">
 
-        <form method="post" action="/get_heart_rate_zone_today">
-                <h4> {{ value }} </h4>
-            <br>
-            <br>
-             <table>
-                 <tr> <th>Heart Rate Zone</th> <th>Minutes</th> <th>Calories</th> <th>Date</th></tr>
-                {% for row in rows %}
-                <tr class="even"> <td>{{ row.type }}</td> <td>{{ row.minutes }}</td> <td>{{ row.calories }}</td> <td>{{ row.date }}</td></tr>
-                {% endfor %}
-             </table>
-        </form>
 
-    </section>
-
-    <form method="POST" action="/get_heart_rate_zone_today">
+    <form method="POST" action="/get_activity_today">
         <center>
         Get activity data for a specific day. Format is YYYY-MM-DD.
 
     {{ form.date }}
     <input type="submit" value="Go">
+<br>
+        <br>
+        <br>
+
+            	<section id="pageContent">
+
+             <table>
+                 <tr> <th>Date</th> <th>Total</th> <th>Calories BMR</th> <th>Activity Calories</th></tr>
+                <tr class="even"> <td>{{ row.date }}</td> <td>{{ row.total }}</td> <td>{{ row.calories_bmr }}</td> <td>{{ row.activity_calories }}</td></tr>
+             </table>
+                </section>
+
         </center>
 </form>
 

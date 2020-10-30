@@ -92,7 +92,7 @@ class TimeSeries:
         # create a session connected to the database in config
         session = sessionmaker(bind=database.engine)()
         for row in tqdm(parsed_rows):
-            session.expunge_all()
+            session.flush()
             try:
                 session.add(row)
                 session.commit()
