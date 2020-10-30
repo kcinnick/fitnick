@@ -42,13 +42,17 @@ def get_heart_rate_zone_today():
     form = DateForm(request.form)
 
     if request.method == 'POST':
-        print("Get heart rate zone method.")
-        rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
+        rows = heart_rate_zone.get_heart_rate_zone_for_day(
+            database='fitbit',
+            target_date=form.date._value()
+        )
+
         return render_template(
             "index.html", value='Today\'s heart rate data was placed in the database!',
             rows=rows,
             form=form
         )
+
     else:
         heart_rate_zone.config = {'base_date': date.today(), 'period': '1d'}
         statement = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
@@ -60,45 +64,15 @@ def get_heart_rate_zone_today():
         )
 
 
-@app.route("/get_heart_rate_zone_for_date", methods=['GET', 'POST'])
-def get_heart_rate_zone_date():
-    heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
-    form = DateForm(request.form)
-    rows = []
-
-    if request.method == 'POST':
-        print('70P')
-        try:
-            rows = [i for i in heart_rate_zone.get_heart_rate_zone_for_day(
-                database='fitbit', target_date=form.date._value())]
-        except AttributeError as e:  # the date regex check failed
-            return render_template(
-                "index.html",
-                value="""There was an error: {}.        
-                Check to make sure you entered a properly formatted date.""".format(e),
-                rows=rows,
-                form=form
-            )
-    while True:
-        try:
-            print('83G')
-            return render_template('index.html', form=form, rows=rows)
-        except DetachedInstanceError:
-            continue
-
-
-@app.route("/activity", methods=['GET', 'POST'])
-def activity():
+@app.route("/get_activity_today", methods=['GET', 'POST'])
+def get_activity_today():
     activity = Activity(config={'database': 'fitbit'})
     form = DateForm(request.form)
-    rows = []
-
     if request.method == 'POST':
-        rows = [i for i in activity.gather_calories_for_day(day='2020-10-26')]
+        row = activity.get_calories_for_day(day=form.date._value())
     else:
-        print('GET')
-
-    return render_template('activity.html', form=None)
+        row = []
+    return render_template('activity.html', form=form, row=row)
 
 
 @app.route('/<page_name>')
