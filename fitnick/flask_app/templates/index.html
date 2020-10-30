@@ -153,7 +153,7 @@ body > section {
         <nav>
 			<ul>
 				<li><a href="/">Home</a>
-                <li><a href="/activity">Activity</a></li>
+                <li><a href="/get_activity_today">Activity</a></li>
 			</ul>
 		</nav>
 <br>
@@ -175,9 +175,9 @@ body > section {
 
     </section>
 
-    <form method="POST" action="/get_heart_rate_zone_for_date">
+    <form method="POST" action="/get_heart_rate_zone_today">
         <center>
-        Get heart rate zone for a specific day. Format is YYYY-MM-DD.
+        Get activity data for a specific day. Format is YYYY-MM-DD.
 
     {{ form.date }}
     <input type="submit" value="Go">
