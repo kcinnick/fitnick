@@ -12,6 +12,7 @@ import pytest
 from fitnick.database.database import Database
 from fitnick.heart_rate.models import heart_daily_table, heart_intraday_table
 from fitnick.heart_rate.time_series import HeartRateTimeSeries
+from fitnick.time_series import plot_rolling_average
 
 EXPECTED_ROWS = [
     ('Out of Range', Decimal('1267.00000'), datetime.date(2020, 9, 5), Decimal('2086.83184'), 68),
@@ -148,5 +149,7 @@ def test_insert_intraday_data():
 def test_plot_rolling_average():
     hrz = HeartRateTimeSeries(config={'database': 'fitbit_test',
                                       'base_date': '2020-10-01',
-                                      'end_date': '2020-10-15'})
-    hrz.plot_rolling_average()
+                                      'end_date': '2020-10-15',
+                                      'table': 'daily',
+                                      'sum_column': 'calories'})
+    plot_rolling_average(hrz.config)
