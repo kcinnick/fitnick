@@ -12,6 +12,54 @@ from fitnick.base.base import get_authorized_client, handle_integrity_error
 from fitnick.database.database import Database
 
 
+def plot(config):
+    import matplotlib.pyplot as plt
+    spark_session = SparkSession.builder.getOrCreate()
+
+    properties = {
+        "driver": "org.postgresql.Driver",
+        "user": os.environ['POSTGRES_USERNAME'],
+        "password": os.environ['POSTGRES_PASSWORD'],
+        "currentSchema": config['schema']
+    }
+
+    df = spark_session.read.jdbc(
+        url=f"jdbc:postgresql://{os.environ['POSTGRES_IP']}/{config['database']}",
+        properties=properties,
+        table=config['table'],
+    )
+
+    if config['resource'] == 'heart':
+        comparison = config.get('sum_column', 'calories')
+        agg_df = (
+            df.groupBy(F.col('date')).agg(
+                F.sum(comparison).alias(comparison)
+            ).orderBy('date')
+        )
+
+        agg_df = agg_df.toPandas()
+        agg_df[comparison] = agg_df[comparison].astype(float)
+        agg_df.plot(
+            kind='bar',
+            x='date',
+            y=comparison
+        )
+        plt.show()
+    elif config['resource'] == 'weight':
+        """parsing for weight"""
+        df = df.orderBy('date').toPandas()
+        df['pounds'] = df['pounds'].astype(float)
+        df.plot(
+            x='date',
+            y='pounds'
+        )
+        plt.show()
+    else:
+        print('Resource {} does not support plotting yet. Bug the developer!'.format(config['resource']))
+
+    return
+
+
 def set_dates(config):
     try:
         assert len(config['base_date'].split('-')[0]) == 4
@@ -38,6 +86,42 @@ def set_dates(config):
         #  default to a 1d query.
 
     return config
+
+
+def plot_rolling_average(config, days=3):
+    import matplotlib.pyplot as plt
+    from pyspark.sql import functions as F
+    from pyspark.sql.window import Window
+
+    from fitnick.base.base import get_df_from_db, create_spark_session
+
+    spark_session = create_spark_session()
+
+    schema = config['schema']
+    table = config['table']
+    sum_column = config['sum_column']
+
+    df = get_df_from_db(spark_session, database='fitbit', schema=schema, table=table)
+
+    agg_df = df.groupBy(F.col('date')).agg(F.sum(sum_column)).alias(sum_column)
+    agg_df = agg_df.filter(F.col('date').between(config['base_date'], config['end_date']))
+
+    window_spec = Window.orderBy(F.col("date")).rowsBetween(-days, 0)
+
+    agg_df = agg_df.withColumn(f'{days}DMA', F.avg(f"{sum_column}.sum({sum_column})").over(window_spec))
+    agg_df = agg_df.toPandas()
+
+    agg_df[f'{days}DMA'] = agg_df[f'{days}DMA'].astype(float)
+    agg_df[f'sum({sum_column})'] = agg_df[f'sum({sum_column})'].astype(float)
+    agg_df.plot(
+        kind='line',
+        x='date',
+        y=[f'{days}DMA', f'sum({sum_column})'],
+    )
+
+    plt.show()
+
+    return
 
 
 class TimeSeries:
@@ -136,53 +220,6 @@ class TimeSeries:
 
         database = Database(database=self.config['database'], schema=self.config['schema'])
         self.insert_data(database)
-
-    def plot(self):
-        import matplotlib.pyplot as plt
-        spark_session = SparkSession.builder.getOrCreate()
-
-        properties = {
-            "driver": "org.postgresql.Driver",
-            "user": os.environ['POSTGRES_USERNAME'],
-            "password": os.environ['POSTGRES_PASSWORD'],
-            "currentSchema": self.config['schema']
-        }
-
-        df = spark_session.read.jdbc(
-            url=f"jdbc:postgresql://{os.environ['POSTGRES_IP']}/{self.config['database']}",
-            properties=properties,
-            table=self.config['table'],
-        )
-
-        if self.config['resource'] == 'heart':
-            comparison = self.config.get('sum_column', 'calories')
-            agg_df = (
-                df.groupBy(F.col('date')).agg(
-                    F.sum(comparison).alias(comparison)
-                ).orderBy('date')
-            )
-
-            agg_df = agg_df.toPandas()
-            agg_df[comparison] = agg_df[comparison].astype(float)
-            agg_df.plot(
-                kind='bar',
-                x='date',
-                y=comparison
-            )
-            plt.show()
-        elif self.config['resource'] == 'weight':
-            """parsing for weight"""
-            df = df.orderBy('date').toPandas()
-            df['pounds'] = df['pounds'].astype(float)
-            df.plot(
-                x='date',
-                y='pounds'
-            )
-            plt.show()
-        else:
-            print('Resource {} does not support plotting yet. Bug the developer!'.format(self.config['resource']))
-
-        return
 
     def validate_input(self):
         try:
