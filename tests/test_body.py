@@ -4,6 +4,8 @@ from decimal import Decimal
 
 import pytest
 
+from fitnick.time_series import plot
+
 from fitnick.body.weight.time_series import WeightTimeSeries
 from fitnick.body.bodyfat.bodyfat import BodyFat
 from fitnick.body.models.bodyfat import BodyFatRecord, bodyfat_table
@@ -80,11 +82,12 @@ def test_insert_weight_data():
 def test_body_plot():
     # although there's no assertions, this effectively tests the plotting method for weight
     # via the config.
-    WeightTimeSeries(config={
+    weight_time_series = WeightTimeSeries(config={
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
         'period': '1d',
-        'table': 'daily'}).plot()
+        'table': 'daily'})
+    plot(weight_time_series.config)
 
 
 def test_get_body_fat():

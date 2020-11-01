@@ -21,7 +21,6 @@ class Calories(Base):
         return f"{self.date}, {self.total}, {self.calories_bmr}, {self.activity_calories}"
 
 
-
 calories_table = Table(
     'calories',
     meta,

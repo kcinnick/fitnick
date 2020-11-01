@@ -6,6 +6,7 @@ from fitnick.activity.activity import Activity  # ugly import for now, but there
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
 from fitnick.activity.models.calories import Calories, CaloriesIntraday, calories_table
 from fitnick.database.database import Database
+from fitnick.time_series import plot_rolling_average
 
 EXPECTED_DAILY_ACTIVITY_RESPONSE = {
     'activities': [
@@ -140,3 +141,15 @@ def test_compare_calories_across_week():
 
     rows = activity.compare_calories_across_week('2020-10-11', 6)
     assert rows == (19985, 19196)
+
+
+@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
+def test_plot_rolling_average():
+    activity = Activity(
+        config={'database': 'fitbit',
+                'table': 'calories',
+                'sum_column': 'total',
+                'base_date': '2020-10-01',
+                'end_date': '2020-10-29'}
+    )
+    plot_rolling_average(activity.config)
