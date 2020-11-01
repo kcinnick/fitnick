@@ -27,6 +27,7 @@ def index():
     rows = [i for i in Database(database='fitbit', schema='heart').engine.execute(statement)]
     if len(rows) == 0:
         rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
+        rows = [i for i in rows]
     form = DateForm(request.form)
     if request.method == 'GET':
         return render_template(
@@ -46,9 +47,10 @@ def get_heart_rate_zone_today():
             database='fitbit',
             target_date=form.date._value()
         )
+        rows = [i for i in rows]
 
         return render_template(
-            "index.html", value='Today\'s heart rate data was placed in the database!',
+            "index.html", value='Today\'s heart rate data was updated in the database!',
             rows=rows,
             form=form
         )
@@ -58,7 +60,7 @@ def get_heart_rate_zone_today():
         statement = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
         rows = Database(database='fitbit', schema='heart').engine.execute(statement)
         return render_template(
-            "index.html", value='Here\'s the latest heart rate data in the database.',
+            "index.html", value='Here\'s the latest heart rate data for {}.'.format(date.today()),
             rows=rows,
             form=form
         )
@@ -70,9 +72,17 @@ def get_activity_today():
     form = DateForm(request.form)
     if request.method == 'POST':
         row = activity.get_calories_for_day(day=form.date._value())
+        value = 'Updated activity data for {}.'.format(form.date._value())
     else:
         row = []
-    return render_template('activity.html', form=form, row=row)
+        value = ''
+
+    return render_template(
+        'activity.html',
+        form=form,
+        row=row,
+        value=value
+    )
 
 
 @app.route('/<page_name>')
