@@ -41,6 +41,7 @@ def index():
 def get_heart_rate_zone_today():
     heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
     form = DateForm(request.form)
+    value = 'Updated heart rate zone data for {}.'
 
     if request.method == 'POST':
         rows = heart_rate_zone.get_heart_rate_zone_for_day(
@@ -50,7 +51,8 @@ def get_heart_rate_zone_today():
         rows = [i for i in rows]
 
         return render_template(
-            "index.html", value='Today\'s heart rate data was updated in the database!',
+            "index.html",
+            value=value.format(form.date._value()),
             rows=rows,
             form=form
         )
@@ -60,7 +62,8 @@ def get_heart_rate_zone_today():
         statement = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
         rows = Database(database='fitbit', schema='heart').engine.execute(statement)
         return render_template(
-            "index.html", value='Here\'s the latest heart rate data for {}.'.format(date.today()),
+            "index.html",
+            value=value.format(date.today()),
             rows=rows,
             form=form
         )
