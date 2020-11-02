@@ -22,6 +22,11 @@ class DateForm(FlaskForm):
 
 @app.route("/", methods=['GET'])
 def index():
+    """
+    Currently serves as the endpoint for the get_heart_rate_zone methods, even
+    though it's currently set to the index page
+    :return:
+    """
     heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
     statement = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
     rows = [i for i in Database(database='fitbit', schema='heart').engine.execute(statement)]
@@ -39,43 +44,52 @@ def index():
 
 @app.route("/get_heart_rate_zone_today", methods=['GET', 'POST'])
 def get_heart_rate_zone_today():
+    """
+    Endpoint for getting heart rate zone data from the FitBit API.
+    :return:
+    """
     heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
     form = DateForm(request.form)
     value = 'Updated heart rate zone data for {}.'
 
+    if form.date._value():
+        search_date = form.date._value()
+    else:
+        search_date = date.today()
+
     if request.method == 'POST':
         rows = heart_rate_zone.get_heart_rate_zone_for_day(
             database='fitbit',
-            target_date=form.date._value()
+            target_date=search_date
         )
         rows = [i for i in rows]
-
-        return render_template(
-            "index.html",
-            value=value.format(form.date._value()),
-            rows=rows,
-            form=form
-        )
-
     else:
         heart_rate_zone.config = {'base_date': date.today(), 'period': '1d'}
         statement = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
         rows = Database(database='fitbit', schema='heart').engine.execute(statement)
-        return render_template(
-            "index.html",
-            value=value.format(date.today()),
-            rows=rows,
-            form=form
-        )
+
+    return render_template(
+        "index.html",
+        value=value.format(search_date),
+        rows=rows,
+        form=form
+    )
 
 
 @app.route("/get_activity_today", methods=['GET', 'POST'])
 def get_activity_today():
+    """
+    Endpoint for getting activity data for a given date from the FitBit API.
+    :return:
+    """
+
     activity = Activity(config={'database': 'fitbit'})
     form = DateForm(request.form)
+    search_date = form.date._value()
+
     if request.method == 'POST':
-        row = activity.get_calories_for_day(day=form.date._value())
-        value = 'Updated activity data for {}.'.format(form.date._value())
+        row = activity.get_calories_for_day(day=search_date)
+        value = 'Updated activity data for {}.'.format(search_date)
     else:
         row = []
         value = ''
@@ -90,6 +104,11 @@ def get_activity_today():
 
 @app.route('/<page_name>')
 def other_page(page_name):
+    """
+    Stand-in endpoint for any undefined URL.
+    :param page_name:
+    :return:
+    """
     response = make_response(f'The page named {page_name} does not exist.', 404)
     return response
 
