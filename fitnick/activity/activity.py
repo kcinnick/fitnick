@@ -1,15 +1,14 @@
 import datetime
 from datetime import timedelta
 
+from pyspark.sql import functions as F
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from pyspark.sql import functions as F
-
-from fitnick.base.base import get_authorized_client, get_df_from_db, create_spark_session
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
 from fitnick.activity.models.calories import Calories, calories_table
+from fitnick.base.base import get_authorized_client, get_df_from_db, create_spark_session
 from fitnick.database.database import Database
 
 
@@ -65,6 +64,7 @@ class Activity:
     @staticmethod
     def insert_log_data(database, parsed_rows):
         session = sessionmaker(bind=database.engine)()
+
         for row in parsed_rows:
             insert_statement = insert(activity_log_table).values(
                 activity_id=row.activity_id,
@@ -121,6 +121,30 @@ class Activity:
         self.insert_calorie_data(database, row)
 
         return row
+
+    def get_lifetime_stats(self):
+        """
+        Implementation of the https://dev.fitbit.com/build/reference/web-api/activity/#get-lifetime-stats
+        endpoint, which does not appear to be implemented in python-fitbit proper.
+        :return:
+        """
+        response = self.authorized_client.make_request('https://api.fitbit.com/1/user/-/activities.json')
+
+        best_stats = response.pop('best').get('total')
+
+        lifetime_stats = response.pop('lifetime').get('total')
+        lifetime_stats.pop('activeScore')
+        lifetime_stats.pop('caloriesOut')  # removing both of these because they're always -1
+
+        for key, value in best_stats.items():
+            print('Best {}: {}'.format(key, value))
+
+        print('\n')
+
+        for key, value in lifetime_stats.items():
+            print('Total {}: {}'.format(key, value))
+
+        return lifetime_stats, best_stats
 
     def backfill_calories(self, period: int = 90):
         """
