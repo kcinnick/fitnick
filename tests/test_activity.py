@@ -79,16 +79,6 @@ def test_parse_daily_activity_summary():
     assert rows == EXPECTED_DAILY_ACTIVITY_ROWS
 
 
-def test_query_calorie_summary():
-    activity = Activity(
-        config={'database': 'fitbit_test',
-                'base_date': '2020-10-01'}
-    )
-    response = activity.query_calorie_summary()
-
-    assert response == EXPECTED_DAILY_ACTIVITY_RESPONSE['summary']
-
-
 def test_insert_daily_activity_summary():
     database = Database('fitbit_test', 'activity')
     connection = database.engine.connect()
@@ -100,6 +90,16 @@ def test_insert_daily_activity_summary():
     )
     rows = activity.insert_log_data(database, EXPECTED_DAILY_ACTIVITY_ROWS)
     assert len(rows) == 5
+
+
+def test_query_calorie_summary():
+    activity = Activity(
+        config={'database': 'fitbit_test',
+                'base_date': '2020-10-01'}
+    )
+    response = activity.query_calorie_summary()
+
+    assert response == EXPECTED_DAILY_ACTIVITY_RESPONSE['summary']
 
 
 def test_insert_calorie_data():
@@ -131,6 +131,16 @@ def test_backfill_calories():
 
     activity.backfill_calories(3)
     assert len([i for i in connection.execute(calories_table.select())]) == 3
+
+
+def test_get_lifetime_stats():
+    activity = Activity(
+        config={'database': 'fitbit_test'}
+    )
+    lifetime_stats, best_stats = activity.get_lifetime_stats()
+
+    assert list(lifetime_stats.keys()) == ['distance', 'floors', 'steps']
+    assert list(best_stats.keys()) == ['distance', 'floors', 'steps']
 
 
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
