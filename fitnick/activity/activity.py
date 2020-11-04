@@ -37,6 +37,13 @@ class Activity:
 
     @staticmethod
     def parse_activity_log(response):
+        """
+        Given a JSON-formatted daily activity summary like the one returned by the query_daily_activity_summary,
+        this method will create an ActivityLogRecord object for each item in the summary and return all of those
+        objects in a list.
+        :param response: JSON-formatted FitBit API response.
+        :return:
+        """
         rows = []
 
         for log in response['activities']:
@@ -50,10 +57,21 @@ class Activity:
         return rows
 
     def query_calorie_summary(self):
+        """
+        Helper function for getting summary information only.
+        :return: dict, daily activity summary JSON response
+        """
         return self.query_daily_activity_summary()['summary']
 
     @staticmethod
     def parse_calorie_summary(date, response):
+        """
+        Given a JSON-formatted daily activity summary like the one returned by the query_calorie_summary method,
+        this method creates & returns a Calories object.
+        :param date: str, date of summary data
+        :param response: dict, calorie summary data returned from FitBit API
+        :return: Calories object, ready for database entry
+        """
         row = Calories(
             date=date, total=response['caloriesOut'], calories_bmr=response['caloriesBMR'],
             activity_calories=response['activityCalories']
@@ -63,6 +81,12 @@ class Activity:
 
     @staticmethod
     def insert_log_data(database, parsed_rows):
+        """
+        Inserts parsed ActivityLogRecord rows into the supplied database.
+        :param database: fitnick.database Database object
+        :param parsed_rows: list of ActivityLogRecord rows
+        :return:
+        """
         session = sessionmaker(bind=database.engine)()
 
         for row in parsed_rows:
@@ -89,6 +113,12 @@ class Activity:
 
     @staticmethod
     def insert_calorie_data(database, parsed_row):
+        """
+        Inserts parsed Calories row into the supplied database.
+        :param database: fitnick.database Database object
+        :param parsed_row: list of Calories row
+        :return:
+        """
         session = sessionmaker(bind=database.engine)()
 
         insert_statement = insert(calories_table).values(
@@ -113,6 +143,12 @@ class Activity:
         return parsed_row
 
     def get_calories_for_day(self, day='2020-10-22'):
+        """
+        Given a YYYY-MM-DD formatted string, retrieves calorie data from the FitBit API
+        and inserts it into the database specified by the config.
+        :param day: str, day to get calorie data for
+        :return:
+        """
         self.config.update({'base_date': day})
 
         raw_calorie_summary = self.query_calorie_summary()
