@@ -107,7 +107,7 @@ class HeartRateTimeSeries(TimeSeries):
             )
 
         db = Database(database=database, schema=self.config['schema'])
-        rows = self.insert_data(db)
+        rows = self.insert_data(db, table=heart_daily_table)
 
         return rows
 

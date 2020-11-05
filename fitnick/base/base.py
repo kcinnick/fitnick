@@ -4,34 +4,6 @@ import os
 import fitbit
 from pyspark.sql import SparkSession
 from sqlalchemy import create_engine
-from sqlalchemy.dialects.postgresql import insert
-
-from fitnick.heart_rate.models import heart_daily_table
-
-
-def handle_integrity_error(session, row):
-    session.rollback()
-    insert_statement = insert(heart_daily_table).values(
-        type=row.type,
-        minutes=row.minutes,
-        date=row.date,
-        calories=row.calories,
-        resting_heart_rate=row.resting_heart_rate)
-
-    update_statement = insert_statement.on_conflict_do_update(
-        constraint='daily_type_date_key',
-        set_={
-            'type': row.type,
-            'minutes': row.minutes,
-            'date': row.date,
-            'calories': row.calories,
-            'resting_heart_rate': row.resting_heart_rate
-        })
-
-    session.execute(update_statement)
-    session.commit()
-
-    return session
 
 
 def get_authorized_client() -> fitbit.Fitbit:

@@ -1,15 +1,14 @@
 import datetime
 from datetime import timedelta
 
+from pyspark.sql import functions as F
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from pyspark.sql import functions as F
-
-from fitnick.base.base import get_authorized_client, get_df_from_db, create_spark_session
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
 from fitnick.activity.models.calories import Calories, calories_table
+from fitnick.base.base import get_authorized_client, get_df_from_db, create_spark_session
 from fitnick.database.database import Database
 
 
@@ -38,6 +37,13 @@ class Activity:
 
     @staticmethod
     def parse_activity_log(response):
+        """
+        Given a JSON-formatted daily activity summary like the one returned by the query_daily_activity_summary,
+        this method will create an ActivityLogRecord object for each item in the summary and return all of those
+        objects in a list.
+        :param response: JSON-formatted FitBit API response.
+        :return:
+        """
         rows = []
 
         for log in response['activities']:
@@ -51,10 +57,21 @@ class Activity:
         return rows
 
     def query_calorie_summary(self):
+        """
+        Helper function for getting summary information only.
+        :return: dict, daily activity summary JSON response
+        """
         return self.query_daily_activity_summary()['summary']
 
     @staticmethod
     def parse_calorie_summary(date, response):
+        """
+        Given a JSON-formatted daily activity summary like the one returned by the query_calorie_summary method,
+        this method creates & returns a Calories object.
+        :param date: str, date of summary data
+        :param response: dict, calorie summary data returned from FitBit API
+        :return: Calories object, ready for database entry
+        """
         row = Calories(
             date=date, total=response['caloriesOut'], calories_bmr=response['caloriesBMR'],
             activity_calories=response['activityCalories']
@@ -64,7 +81,14 @@ class Activity:
 
     @staticmethod
     def insert_log_data(database, parsed_rows):
+        """
+        Inserts parsed ActivityLogRecord rows into the supplied database.
+        :param database: fitnick.database Database object
+        :param parsed_rows: list of ActivityLogRecord rows
+        :return:
+        """
         session = sessionmaker(bind=database.engine)()
+
         for row in parsed_rows:
             insert_statement = insert(activity_log_table).values(
                 activity_id=row.activity_id,
@@ -89,6 +113,12 @@ class Activity:
 
     @staticmethod
     def insert_calorie_data(database, parsed_row):
+        """
+        Inserts parsed Calories row into the supplied database.
+        :param database: fitnick.database Database object
+        :param parsed_row: list of Calories row
+        :return:
+        """
         session = sessionmaker(bind=database.engine)()
 
         insert_statement = insert(calories_table).values(
@@ -113,6 +143,12 @@ class Activity:
         return parsed_row
 
     def get_calories_for_day(self, day='2020-10-22'):
+        """
+        Given a YYYY-MM-DD formatted string, retrieves calorie data from the FitBit API
+        and inserts it into the database specified by the config.
+        :param day: str, day to get calorie data for
+        :return:
+        """
         self.config.update({'base_date': day})
 
         raw_calorie_summary = self.query_calorie_summary()
@@ -121,6 +157,30 @@ class Activity:
         self.insert_calorie_data(database, row)
 
         return row
+
+    def get_lifetime_stats(self):
+        """
+        Implementation of the https://dev.fitbit.com/build/reference/web-api/activity/#get-lifetime-stats
+        endpoint, which does not appear to be implemented in python-fitbit proper.
+        :return:
+        """
+        response = self.authorized_client.make_request('https://api.fitbit.com/1/user/-/activities.json')
+
+        best_stats = response.pop('best').get('total')
+
+        lifetime_stats = response.pop('lifetime').get('total')
+        lifetime_stats.pop('activeScore')
+        lifetime_stats.pop('caloriesOut')  # removing both of these because they're always -1
+
+        for key, value in best_stats.items():
+            print('Best {}: {}'.format(key, value))
+
+        print('\n')
+
+        for key, value in lifetime_stats.items():
+            print('Total {}: {}'.format(key, value))
+
+        return lifetime_stats, best_stats
 
     def backfill_calories(self, period: int = 90):
         """

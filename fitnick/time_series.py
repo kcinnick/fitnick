@@ -4,11 +4,12 @@ import re
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from tqdm import tqdm
 
-from fitnick.base.base import get_authorized_client, handle_integrity_error
+from fitnick.base.base import get_authorized_client
 from fitnick.database.database import Database
 
 
@@ -164,7 +165,7 @@ class TimeSeries:
 
         return data
 
-    def insert_data(self, database):
+    def insert_data(self, database, table):
         """
         Extracts, transforms & loads the data specified by the self.config dict.
         :return:
@@ -172,24 +173,44 @@ class TimeSeries:
         self.validate_input()
         data = self.query()
         parsed_rows = self.parse_response(data)  # method should be implemented in inheriting class
-
         # create a session connected to the database in config
         session = sessionmaker(bind=database.engine)()
-        for row in tqdm(parsed_rows):
-            session.flush()
-            try:
-                session.add(row)
+
+        if table.fullname == 'heart.daily':
+            for row in parsed_rows:
+                insert_statement = insert(table).values(
+                    type=row.type,
+                    minutes=row.minutes,
+                    date=row.date,
+                    calories=row.calories,
+                    resting_heart_rate=row.resting_heart_rate)
+
+                update_statement = insert_statement.on_conflict_do_update(
+                    constraint='daily_type_date_key',
+                    set_={
+                        'type': row.type,
+                        'minutes': row.minutes,
+                        'date': row.date,
+                        'calories': row.calories,
+                        'resting_heart_rate': row.resting_heart_rate
+                    })
+
+                session.execute(update_statement)
                 session.commit()
-            except IntegrityError:
-                handle_integrity_error(session, row)
-            finally:
-                session.close()
+        elif table.fullname == 'weight.daily':
+            for row in parsed_rows:
+                insert_statement = insert(table).values(
+                    date=row.date,
+                    pounds=row.pounds
+                )
+                session.execute(insert_statement)
+                session.commit()
 
         return parsed_rows
 
     def insert_intraday_data(self):
         """
-        Extracts, transforms & loads the data specified by the self.config dict.
+        Extracts, transforms & loads the intraday data specified by the self.config dict.
         :return:
         """
 
