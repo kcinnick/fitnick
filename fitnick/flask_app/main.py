@@ -32,7 +32,8 @@ def index():
     rows = [i for i in Database(database='fitbit', schema='heart').engine.execute(statement)]
     if len(rows) == 0:
         rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
-        rows = [i for i in rows]
+
+    rows = [i for i in rows]
     form = DateForm(request.form)
     if request.method == 'GET':
         return render_template(
