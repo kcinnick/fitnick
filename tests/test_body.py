@@ -70,7 +70,7 @@ def test_insert_weight_data():
     WeightTimeSeries(config={
         'database': 'fitbit_test',
         'base_date': '2020-09-05',
-        'period': '1d'}).insert_data()
+        'period': '1d'}).insert_data(database, weight_table)
 
     rows = [row for row in connection.execute(weight_table.select())]
     connection.close()

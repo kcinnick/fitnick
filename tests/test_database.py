@@ -37,7 +37,7 @@ def test_check_for_duplicates():
         'base_date': '2020-09-02',
         'period': '1d',
         'database': 'fitbit_test'}
-    ).insert_data(database)
+    ).insert_data(database, heart_daily_table)
 
     results = connection.execute(
         heart_daily_table.select().where(heart_daily_table.columns.date == '2020-09-02'))
