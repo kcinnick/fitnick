@@ -165,6 +165,15 @@ class TimeSeries:
 
         return data
 
+    @staticmethod
+    def parse_response(data):
+        """
+        Method needs to be overwritten in inheriting class.
+        :param data:
+        :return:
+        """
+        return data
+
     def insert_data(self, database, table):
         """
         Extracts, transforms & loads the data specified by the self.config dict.
@@ -240,7 +249,7 @@ class TimeSeries:
         self.config['end_date'] = date.today().strftime('%Y-%m-%d')
 
         database = Database(database=self.config['database'], schema=self.config['schema'])
-        self.insert_data(database)
+        self.insert_data(database=database, table=self.config['table'])
 
     def validate_input(self):
         try:
