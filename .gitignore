@@ -106,3 +106,4 @@ ENV/
 
 # PyCharm stuff
 .idea/*
+.idea/dbnavigator.xml
