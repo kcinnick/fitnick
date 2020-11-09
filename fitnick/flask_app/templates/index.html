@@ -161,6 +161,34 @@ body > section {
         <br>
 	<section id="pageContent">
 
+    <form method="POST" action="/get_heart_rate_zone_today">
+            Month:
+        <select name=month_options method="POST" action="/">
+            {% for month in month_options %}
+            <option value= "{{ month }}" SELECTED>{{ month }}</option>"
+            {% endfor %}
+        </select>
+
+            Day:
+        <select name=day_options method="POST" action="/">
+            {% for day in day_options %}
+            <option value= "{{ day }}" SELECTED>{{ day }}</option>"
+            {% endfor %}
+        </select>
+
+            Year:
+        <select name=year_options method="POST" action="/">
+            {% for year in year_options %}
+            <option value= "{{ year }}" SELECTED>{{ year }}</option>"
+            {% endfor %}
+        </select>
+
+
+            <input type="submit" value="Go">
+    </form>
+        <br><br><br>
+
+
         <form method="post" action="/get_heart_rate_zone_today">
                 <h4> {{ value }} </h4>
             <br>
