@@ -35,11 +35,14 @@ def index():
 
     rows = [i for i in rows]
     form = DateForm(request.form)
+    month_options = range(1, 13)
+
     if request.method == 'GET':
         return render_template(
             "index.html",
             rows=rows,
-            form=form
+            form=form,
+            month_options=month_options
         )
 
 
@@ -56,13 +59,18 @@ def get_heart_rate_zone_today():
     if form.date._value():
         search_date = form.date._value()
     else:
-        search_date = date.today()
+        search_date = str(date.today())
 
     if request.method == 'POST':
+        if all([request.form.get('month_options'), request.form.get('day_options'), request.form.get('year_options')]):
+            search_date = '-'.join(
+                [f"{request.form['year_options']}",
+                 f"{request.form['month_options']}".zfill(2),
+                 f"{request.form['day_options']}".zfill(2)])
+
         rows = heart_rate_zone.get_heart_rate_zone_for_day(
             database='fitbit',
-            target_date=search_date
-        )
+            target_date=search_date)
         rows = [i for i in rows]
     else:
         heart_rate_zone.config = {'base_date': date.today(), 'period': '1d'}
@@ -73,7 +81,10 @@ def get_heart_rate_zone_today():
         "index.html",
         value=value.format(search_date),
         rows=rows,
-        form=form
+        form=form,
+        month_options=range(1, 13),
+        day_options=range(1, 32),
+        year_options=range(2020, 2021)
     )
 
 
