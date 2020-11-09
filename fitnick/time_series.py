@@ -63,7 +63,7 @@ def plot(config):
 
 def set_dates(config):
     try:
-        assert len(config['base_date'].split('-')[0]) == 4
+        assert len(str(config['base_date']).split('-')[0]) == 4
     except AssertionError:
         print('Dates must be formatted as YYYY-MM-DD. Exiting.')
         exit()
