@@ -149,6 +149,7 @@ body > section {
 
 </style>
 </head>
+
     <body>
         <nav>
 			<ul>
@@ -156,61 +157,66 @@ body > section {
                 <li><a href="/get_activity_today">Activity</a></li>
 			</ul>
 		</nav>
-<br>
-        <br>
-        <br>
+
+        <br> <br> <br>
+
 	<section id="pageContent">
 
     <form method="POST" action="/get_heart_rate_zone_today">
-            Month:
+        <center>
+
+        Month:
         <select name=month_options method="POST" action="/">
             {% for month in month_options %}
             <option value= "{{ month }}" SELECTED>{{ month }}</option>"
             {% endfor %}
         </select>
 
-            Day:
+        Day:
         <select name=day_options method="POST" action="/">
             {% for day in day_options %}
             <option value= "{{ day }}" SELECTED>{{ day }}</option>"
             {% endfor %}
         </select>
 
-            Year:
+        Year:
         <select name=year_options method="POST" action="/">
             {% for year in year_options %}
             <option value= "{{ year }}" SELECTED>{{ year }}</option>"
             {% endfor %}
         </select>
 
+        </center>
 
-            <input type="submit" value="Go">
+            <center>
+                <br>
+                <input type="submit" value="Go">
+            </center>
+
     </form>
+
         <br><br><br>
 
+    <form method="post" action="/get_heart_rate_zone_today">
+            <center>
+            <h4> {{ value }} </h4>
+            </center>
 
-        <form method="post" action="/get_heart_rate_zone_today">
-                <h4> {{ value }} </h4>
-            <br>
-            <br>
-             <table>
-                 <tr> <th>Heart Rate Zone</th> <th>Minutes</th> <th>Calories</th> <th>Date</th></tr>
-                {% for row in rows %}
-                <tr class="even"> <td>{{ row.type }}</td> <td>{{ row.minutes }}</td> <td>{{ row.calories }}</td> <td>{{ row.date }}</td></tr>
-                {% endfor %}
-             </table>
-        </form>
+        <br> <br>
+
+         <table>
+             <tr>
+                 <th>Heart Rate Zone</th> <th>Minutes</th> <th>Calories</th> <th>Date</th
+             </tr>
+
+            {% for row in rows %}
+            <tr class="even"> <td>{{ row.type }}</td> <td>{{ row.minutes }}</td> <td>{{ row.calories }}</td> <td>{{ row.date }}</td></tr>
+            {% endfor %}
+
+         </table>
+    </form>
 
     </section>
-
-    <form method="POST" action="/get_heart_rate_zone_today">
-        <center>
-        Get activity data for a specific day. Format is YYYY-MM-DD.
-
-    {{ form.date }}
-    <input type="submit" value="Go">
-        </center>
-</form>
 
     </body>
 </html>
