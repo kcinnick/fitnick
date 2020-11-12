@@ -19,6 +19,12 @@ Runs on top of Google Cloud Platform (https://console.cloud.google.com/) and use
 * Documentation: https://fitnick.readthedocs.io.
 
 
+Installation
+-------
+
+`pip install fitnick`
+
+
 Credits
 -------
 
