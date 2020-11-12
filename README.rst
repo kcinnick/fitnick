@@ -22,7 +22,7 @@ Runs on top of Google Cloud Platform (https://console.cloud.google.com/) and use
 Installation
 -------
 
-`pip install fitnick`
+```pip install fitnick```
 
 
 Credits
