@@ -58,7 +58,7 @@ class Activity:
 
     def query_calorie_summary(self):
         """
-        Helper function for getting summary information only.
+        Helper function for getting summary information only. Will raise KeyError if invalid date is entered.
         :return: dict, daily activity summary JSON response
         """
         return self.query_daily_activity_summary()['summary']

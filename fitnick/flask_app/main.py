@@ -30,19 +30,26 @@ def index():
     heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
     statement = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
     rows = [i for i in Database(database='fitbit', schema='heart').engine.execute(statement)]
+    #  retrieve rows for today already in database, if there are none then get rows via fitnick
     if len(rows) == 0:
         rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
 
     rows = [i for i in rows]
+
     form = DateForm(request.form)
-    month_options = range(1, 13)
+
+    month_options = [i for i in range(1, 13)]
+    day_options = [i for i in range(1, 32)]
+    year_options = range(2020, 2021)
 
     if request.method == 'GET':
         return render_template(
             "index.html",
             rows=rows,
             form=form,
-            month_options=month_options
+            month_options=month_options,
+            day_options=day_options,
+            year_options=year_options
         )
 
 
@@ -56,23 +63,27 @@ def get_heart_rate_zone_today():
     form = DateForm(request.form)
     value = 'Updated heart rate zone data for {}.'
 
-    if form.date._value():
+    if form.date._value():  # set search_date, default to today if none supplied
         search_date = form.date._value()
     else:
         search_date = str(date.today())
 
     if request.method == 'POST':
+        # collect search date information from the dropdown forms if they're all supplied.
         if all([request.form.get('month_options'), request.form.get('day_options'), request.form.get('year_options')]):
             search_date = '-'.join(
                 [f"{request.form['year_options']}",
                  f"{request.form['month_options']}".zfill(2),
                  f"{request.form['day_options']}".zfill(2)])
+        else:
+            # use the search_date value we set in lines 59-62
+            pass
 
         rows = heart_rate_zone.get_heart_rate_zone_for_day(
             database='fitbit',
             target_date=search_date)
         rows = [i for i in rows]
-    else:
+    else:  # no date supplied, just return data for today.
         heart_rate_zone.config = {'base_date': date.today(), 'period': '1d'}
         statement = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
         rows = Database(database='fitbit', schema='heart').engine.execute(statement)
@@ -83,7 +94,7 @@ def get_heart_rate_zone_today():
         rows=rows,
         form=form,
         month_options=range(1, 13),
-        day_options=range(1, 32),
+        day_options=[i for i in range(1, 32)],
         year_options=range(2020, 2021)
     )
 
