@@ -111,6 +111,16 @@ def get_activity_today():
     search_date = form.date._value()
 
     if request.method == 'POST':
+        # collect search date information from the dropdown forms if they're all supplied.
+        if all([request.form.get('month_options'), request.form.get('day_options'), request.form.get('year_options')]):
+            search_date = '-'.join(
+                [f"{request.form['year_options']}",
+                 f"{request.form['month_options']}".zfill(2),
+                 f"{request.form['day_options']}".zfill(2)])
+        else:
+            # use the search_date value we set in lines 66-69
+            # if KeyError is raised, base_date is ''
+            pass
         row = activity.get_calories_for_day(day=search_date)
         value = 'Updated activity data for {}.'.format(search_date)
     else:
@@ -121,7 +131,10 @@ def get_activity_today():
         'activity.html',
         form=form,
         row=row,
-        value=value
+        value=value,
+        month_options=range(1, 13),
+        day_options=[i for i in range(1, 32)],
+        year_options=range(2020, 2021)
     )
 
 
