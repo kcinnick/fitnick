@@ -53,6 +53,21 @@ def index():
         )
 
 
+def set_search_date(request, search_date):
+    if request.method == 'POST':
+        # collect search date information from the dropdown forms if they're all supplied.
+        if all([request.form.get('month_options'), request.form.get('day_options'), request.form.get('year_options')]):
+            search_date = '-'.join(
+                [f"{request.form['year_options']}",
+                 f"{request.form['month_options']}".zfill(2),
+                 f"{request.form['day_options']}".zfill(2)])
+        else:
+            # use the search_date value we set in lines 59-62
+            pass
+
+    return search_date
+
+
 @app.route("/get_heart_rate_zone_today", methods=['GET', 'POST'])
 def get_heart_rate_zone_today():
     """
@@ -70,15 +85,7 @@ def get_heart_rate_zone_today():
 
     if request.method == 'POST':
         # collect search date information from the dropdown forms if they're all supplied.
-        if all([request.form.get('month_options'), request.form.get('day_options'), request.form.get('year_options')]):
-            search_date = '-'.join(
-                [f"{request.form['year_options']}",
-                 f"{request.form['month_options']}".zfill(2),
-                 f"{request.form['day_options']}".zfill(2)])
-        else:
-            # use the search_date value we set in lines 59-62
-            pass
-
+        search_date = set_search_date(request, search_date)
         rows = heart_rate_zone.get_heart_rate_zone_for_day(
             database='fitbit',
             target_date=search_date)
@@ -111,16 +118,7 @@ def get_activity_today():
     search_date = form.date._value()
 
     if request.method == 'POST':
-        # collect search date information from the dropdown forms if they're all supplied.
-        if all([request.form.get('month_options'), request.form.get('day_options'), request.form.get('year_options')]):
-            search_date = '-'.join(
-                [f"{request.form['year_options']}",
-                 f"{request.form['month_options']}".zfill(2),
-                 f"{request.form['day_options']}".zfill(2)])
-        else:
-            # use the search_date value we set in lines 66-69
-            # if KeyError is raised, base_date is ''
-            pass
+        search_date = set_search_date(request, search_date)
         row = activity.get_calories_for_day(day=search_date)
         value = 'Updated activity data for {}.'.format(search_date)
     else:
