@@ -148,7 +148,7 @@ class TimeSeries:
         """
         self.config = set_dates(self.config)
 
-        if self.config['resource'] in ['sleep', 'heart', 'steps', 'calories', 'caloriesBMR', 'distance',
+        if self.config['resource'] in ['heart', 'steps', 'calories', 'caloriesBMR', 'distance',
                                        'floors', 'elevation', 'minutesSedentary', 'minutesLightlyActive',
                                        'minutesFairlyActive', 'minutesVeryActive', 'activityCalories']:
             data = self.authorized_client.time_series(
@@ -161,6 +161,13 @@ class TimeSeries:
                 resource=f'body/{self.config["resource"]}',
                 base_date=self.config['base_date'],
                 end_date=self.config['end_date']
+            )
+        elif self.config['resource'] == 'sleep':
+            data = self.authorized_client.make_request(
+                method='get',
+                url=f'https://api.fitbit.com/{self.authorized_client.API_VERSION}' +
+                    f'/user/-/sleep/date/{self.config["base_date"]}/{self.config["end_date"]}.json',
+                data={},
             )
         else:
             raise NotImplementedError(f'Resource {self.config["resource"]} is not yet supported.\n')
