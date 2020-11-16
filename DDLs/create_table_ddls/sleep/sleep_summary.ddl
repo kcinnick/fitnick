@@ -1,12 +1,15 @@
 CREATE TABLE sleep.summary
 (
-    date date,
-    deep character varying,
-    light character varying,
-    rem character varying,
-    wake character varying,
-    total_minutes_asleep character varying,
-    total_time_in_bed character varying
+    date date NOT NULL,
+    duration character varying,
+    efficiency character varying,
+    end_time character varying,
+    minutes_asleep character varying,
+    minutes_awake character varying,
+    start_time character varying,
+    time_in_bed character varying,
+    log_id character varying,
+    CONSTRAINT date_key UNIQUE (date)
 );
 
 ALTER TABLE sleep.summary

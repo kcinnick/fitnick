@@ -3,7 +3,7 @@ import os
 
 from flask import Flask, make_response, render_template, request
 from flask_wtf import FlaskForm
-from sqlalchemy.orm.exc import DetachedInstanceError
+
 from wtforms import StringField
 
 from fitnick.activity.activity import Activity
@@ -14,6 +14,10 @@ from fitnick.heart_rate.models import heart_daily_table
 app = Flask(__name__)
 SECRET_KEY = os.urandom(32)
 app.config['SECRET_KEY'] = SECRET_KEY
+
+month_options = [i for i in range(1, 13)]
+day_options = [i for i in range(1, 32)]
+year_options = range(2020, 2021)
 
 
 class DateForm(FlaskForm):
@@ -38,13 +42,9 @@ def index():
 
     form = DateForm(request.form)
 
-    month_options = [i for i in range(1, 13)]
-    day_options = [i for i in range(1, 32)]
-    year_options = range(2020, 2021)
-
     if request.method == 'GET':
         return render_template(
-            "index.html",
+            template_name_or_list="index.html",
             rows=rows,
             form=form,
             month_options=month_options,
@@ -63,39 +63,30 @@ def get_heart_rate_zone_today():
     form = DateForm(request.form)
     value = 'Updated heart rate zone data for {}.'
 
-    if form.date._value():  # set search_date, default to today if none supplied
-        search_date = form.date._value()
-    else:
-        search_date = str(date.today())
+    search_date = str(date.today())
 
     if request.method == 'POST':
+        if request.form.get('year_options'):  # set search_date, default to today if none supplied
+            search_date = f"{request.form['year_options']}-{request.form['month_options']}-{request.form['day_options']}"
         # collect search date information from the dropdown forms if they're all supplied.
-        if all([request.form.get('month_options'), request.form.get('day_options'), request.form.get('year_options')]):
-            search_date = '-'.join(
-                [f"{request.form['year_options']}",
-                 f"{request.form['month_options']}".zfill(2),
-                 f"{request.form['day_options']}".zfill(2)])
-        else:
-            # use the search_date value we set in lines 59-62
-            pass
-
         rows = heart_rate_zone.get_heart_rate_zone_for_day(
             database='fitbit',
             target_date=search_date)
         rows = [i for i in rows]
-    else:  # no date supplied, just return data for today.
+    else:  # request.method == 'GET'
+        # no date supplied, just return data for today.
         heart_rate_zone.config = {'base_date': date.today(), 'period': '1d'}
         statement = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
         rows = Database(database='fitbit', schema='heart').engine.execute(statement)
 
     return render_template(
-        "index.html",
+        template_name_or_list="index.html",
         value=value.format(search_date),
         rows=rows,
         form=form,
-        month_options=range(1, 13),
-        day_options=[i for i in range(1, 32)],
-        year_options=range(2020, 2021)
+        month_options=month_options,
+        day_options=day_options,
+        year_options=year_options
     )
 
 
@@ -108,20 +99,22 @@ def get_activity_today():
 
     activity = Activity(config={'database': 'fitbit'})
     form = DateForm(request.form)
-    search_date = form.date._value()
 
     if request.method == 'POST':
+        search_date = f"{request.form['year_options']}-{request.form['month_options']}-{request.form['day_options']}"
         row = activity.get_calories_for_day(day=search_date)
         value = 'Updated activity data for {}.'.format(search_date)
     else:
-        row = []
-        value = ''
+        row, value = {}, ''
 
     return render_template(
-        'activity.html',
+        template_name_or_list='activity.html',
         form=form,
         row=row,
-        value=value
+        value=value,
+        month_options=month_options,
+        day_options=day_options,
+        year_options=year_options
     )
 
 
