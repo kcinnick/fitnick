@@ -88,3 +88,35 @@ def create_spark_session():
     spark = SparkSession.builder.getOrCreate()
 
     return spark
+
+
+def introspect_tokens():
+    import requests
+
+    access_token_data = {'token': os.environ['FITBIT_ACCESS_KEY']}
+    refresh_token_data = {'token': os.environ['FITBIT_REFRESH_TOKEN']}
+    default_string = "{} is {}."
+
+    headers = {'clientId': os.environ['FITBIT_CONSUMER_KEY'],
+               'Content-Type': 'application/x-www-form-urlencoded',
+               'Authorization': f"Basic {os.environ['FITBIT_AUTH_HEADER']}"}
+
+    print('\nValidating tokens..')
+    valid = True
+    for identifier, token in {'Access token': access_token_data, 'Refresh token': refresh_token_data}.items():
+        with requests.session() as session:
+            r = session.post(
+                url='https://api.fitbit.com/1.1/oauth2/introspect',
+                data=token,
+                headers=headers
+            )
+            if r.json()['active']:
+                print(default_string.format(identifier, 'active'))
+            else:
+                if identifier != 'Refresh token':
+                    print(default_string.format(identifier, 'expired. Please update'))
+                    valid = False
+                else:
+                    print('Refresh token hasn\'t been used yet. You\'re good to go!')
+
+    return valid
