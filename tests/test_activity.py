@@ -4,7 +4,7 @@ import pytest
 
 from fitnick.activity.activity import Activity  # ugly import for now, but there are bigger fish to fry..
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
-from fitnick.activity.models.calories import Calories, calories_table
+from fitnick.activity.models.calories import Calories, CaloriesIntraday, calories_table
 from fitnick.database.database import Database
 from fitnick.time_series import plot_rolling_average
 

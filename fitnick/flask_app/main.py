@@ -1,14 +1,15 @@
-import os
 from datetime import date
+import os
 
 from flask import Flask, make_response, render_template, request
 from flask_wtf import FlaskForm
+
 from wtforms import StringField
 
 from fitnick.activity.activity import Activity
 from fitnick.database.database import Database
-from fitnick.heart_rate.models import heart_daily_table
 from fitnick.heart_rate.time_series import HeartRateTimeSeries
+from fitnick.heart_rate.models import heart_daily_table
 
 app = Flask(__name__)
 SECRET_KEY = os.urandom(32)

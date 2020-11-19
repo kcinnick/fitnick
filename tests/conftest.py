@@ -1,5 +1,4 @@
 import pytest
-
 from fitnick.base.base import introspect_tokens
 
 

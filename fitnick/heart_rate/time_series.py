@@ -3,8 +3,8 @@ from datetime import date
 from sqlalchemy.dialects.postgresql import insert
 
 from fitnick.database.database import Database
-from fitnick.heart_rate.models import HeartDaily, heart_daily_table, HeartIntraday
-from fitnick.time_series import TimeSeries
+from fitnick.time_series import TimeSeries, plot_rolling_average
+from fitnick.heart_rate.models import HeartDaily, heart_daily_table, HeartIntraday, heart_intraday_table
 
 
 def handle_integrity_error(session, row):
