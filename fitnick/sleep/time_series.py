@@ -1,12 +1,10 @@
-from pprint import pprint
-
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from fitnick.base.base import get_authorized_client
-from fitnick.time_series import TimeSeries
 from fitnick.sleep.models import SleepSummary, SleepLevel, sleep_summary_table, sleep_level_table
+from fitnick.time_series import TimeSeries
 
 
 class SleepTimeSeries(TimeSeries):

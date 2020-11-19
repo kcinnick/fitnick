@@ -1,6 +1,7 @@
-from fitnick.time_series import TimeSeries
-from fitnick.activity.models.calories import calories_table
 import pytest
+
+from fitnick.activity.models.calories import calories_table
+from fitnick.time_series import TimeSeries
 
 
 def test_validate_inputs():
