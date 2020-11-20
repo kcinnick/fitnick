@@ -1,11 +1,10 @@
-from datetime import datetime, timedelta, date
 import os
 import re
+from datetime import datetime, timedelta, date
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from tqdm import tqdm
 
