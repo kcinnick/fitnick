@@ -62,8 +62,8 @@ class SleepTimeSeries(TimeSeries):
 
     def insert_data(self, database, **kwargs):
         """
-        Extracts, transforms & loads sleep summary & sleep level data for the date(s) specified
-        in the config.
+        Extracts, transforms & loads sleep summary & sleep level data for
+        the date(s) specified in the config.
         :param database: Database object connected to fitbit or fitbit_test.
         :return:
         """

@@ -8,6 +8,12 @@ from fitnick.time_series import TimeSeries
 
 
 def handle_integrity_error(session, row):
+    """
+    Handles an upsert if older or incomplete HeartDaily data already exists.
+    :param session: database session
+    :param row: HeartDaily row
+    :return:
+    """
     session.rollback()
     insert_statement = insert(heart_daily_table).values(
         type=row.type,
@@ -70,6 +76,11 @@ class HeartRateTimeSeries(TimeSeries):
         return rows
 
     def get_total_calories_df(self, show=True):
+        """
+        Sums calories for all days in heart_daily_table.
+        :param show: if True, displays the dataframe in addition to returning it.
+        :return:
+        """
         from fitnick.database.database import Database
         from pyspark.sql import functions as F
 
