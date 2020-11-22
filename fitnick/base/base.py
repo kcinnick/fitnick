@@ -90,11 +90,16 @@ def create_spark_session():
     return spark
 
 
-def introspect_tokens():
+def introspect_tokens(access_token=None, refresh_token=None):
     import requests
 
-    access_token_data = {'token': os.environ['FITBIT_ACCESS_KEY']}
-    refresh_token_data = {'token': os.environ['FITBIT_REFRESH_TOKEN']}
+    if not access_token:
+        access_token_data = {'token': os.environ['FITBIT_ACCESS_KEY']}
+        refresh_token_data = {'token': os.environ['FITBIT_REFRESH_TOKEN']}
+    else:
+        access_token_data = {'token': access_token}
+        refresh_token_data = {'token': refresh_token}
+
     default_string = "{} is {}."
 
     headers = {'clientId': os.environ['FITBIT_CONSUMER_KEY'],
@@ -117,6 +122,6 @@ def introspect_tokens():
                     print(default_string.format(identifier, 'expired. Please update'))
                     valid = False
                 else:
-                    print('Refresh token hasn\'t been used yet. You\'re good to go!')
+                    print('Refresh token is valid.')
 
     return valid
