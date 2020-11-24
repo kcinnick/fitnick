@@ -18,6 +18,7 @@ def test_validate_inputs():
         ).validate_input()
 
 
+@pytest.mark.skip(reason="calories table hasn't been written yet")
 def test_backfill():
     time_series = TimeSeries(
         config={'base_date': '2020-10-01',
