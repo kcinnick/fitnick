@@ -222,6 +222,10 @@ class TimeSeries:
                 )
                 session.execute(insert_statement)
                 session.commit()
+        else:
+            raise NotImplementedError('Inserting {} data is not yet supported.'.format(
+                table
+            ))
 
         return parsed_rows
 
@@ -260,6 +264,10 @@ class TimeSeries:
         self.insert_data(database=database, table=self.config['table'])
 
     def validate_input(self):
+        """
+        Asserts date(s) or period was entered properly.
+        :return:
+        """
         try:
             assert re.match(r'\d{4}-\d{2}-\d{2}', str(self.config['base_date'])).group()
         except AttributeError as e:
