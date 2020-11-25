@@ -41,15 +41,14 @@ def index():
 
     form = DateForm(request.form)
 
-    if request.method == 'GET':
-        return render_template(
-            template_name_or_list="index.html",
-            rows=rows,
-            form=form,
-            month_options=month_options,
-            day_options=day_options,
-            year_options=year_options
-        )
+    return render_template(
+        template_name_or_list="index.html",
+        rows=rows,
+        form=form,
+        month_options=month_options,
+        day_options=day_options,
+        year_options=year_options
+    )
 
 
 @app.route("/get_heart_rate_zone_today", methods=['GET', 'POST'])
