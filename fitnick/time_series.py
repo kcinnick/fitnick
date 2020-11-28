@@ -222,6 +222,16 @@ class TimeSeries:
                 )
                 session.execute(insert_statement)
                 session.commit()
+        elif table.fullname == 'activity.calories':
+            for row in parsed_rows:
+                insert_statement = insert(table).values(
+                    date=row.date,
+                    total=row.total,
+                    calories_bmr=row.calories_bmr,
+                    activity_calories=row.activity_calories
+                )
+                session.execute(insert_statement)
+                session.commit()
         else:
             raise NotImplementedError('Inserting {} data is not yet supported.'.format(
                 table

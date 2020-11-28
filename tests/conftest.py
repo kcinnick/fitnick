@@ -7,6 +7,6 @@ from fitnick.base.base import introspect_tokens
 def validate_tokens():
     valid = introspect_tokens()
     if not valid:
-        pytest.exit(msg='Token validation failed. Please refresh tokens before running tests!')
+        raise AssertionError
     else:
         print('Token validation passed. Continuing..')

@@ -1,10 +1,9 @@
 import os
-from datetime import date
+from datetime import date, datetime
 
 from flask import Flask, make_response, render_template, request
-from flask_wtf import FlaskForm
-from wtforms import StringField
 
+from .forms import DateForm
 from fitnick.activity.activity import Activity
 from fitnick.database.database import Database
 from fitnick.heart_rate.models import heart_daily_table
@@ -16,40 +15,40 @@ app.config['SECRET_KEY'] = SECRET_KEY
 
 month_options = [i for i in range(1, 13)]
 day_options = [i for i in range(1, 32)]
-year_options = range(2020, 2021)
+current_year = datetime.now().year
+year_options = range(current_year, current_year + 1)
 
 
-class DateForm(FlaskForm):
-    date = StringField('date')
-
-
-@app.route("/", methods=['GET'])
-def index():
-    """
-    Currently serves as the endpoint for the get_heart_rate_zone methods, even
-    though it's currently set to the index page
-    :return:
-    """
-    heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
+def get_heart_rate_zone_rows(heart_rate_zone):
     statement = heart_daily_table.select().where(heart_daily_table.columns.date == str(date.today()))
     rows = [i for i in Database(database='fitbit', schema='heart').engine.execute(statement)]
     #  retrieve rows for today already in database, if there are none then get rows via fitnick
     if len(rows) == 0:
         rows = heart_rate_zone.get_heart_rate_zone_for_day(database='fitbit')
 
-    rows = [i for i in rows]
+    return rows
+
+
+@app.route("/", methods=['GET'])
+def index():
+    """
+    Serves as the endpoint for the get_heart_rate_zone methods, even
+    though it's currently set to the index page
+    :return:
+    """
+    heart_rate_zone = HeartRateTimeSeries(config={'database': 'fitbit'})
+    rows = get_heart_rate_zone_rows(heart_rate_zone)
 
     form = DateForm(request.form)
 
-    if request.method == 'GET':
-        return render_template(
-            template_name_or_list="index.html",
-            rows=rows,
-            form=form,
-            month_options=month_options,
-            day_options=day_options,
-            year_options=year_options
-        )
+    return render_template(
+        template_name_or_list="index.html",
+        rows=rows,
+        form=form,
+        month_options=month_options,
+        day_options=day_options,
+        year_options=year_options
+    )
 
 
 @app.route("/get_heart_rate_zone_today", methods=['GET', 'POST'])
