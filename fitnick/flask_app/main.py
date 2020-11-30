@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 from flask import Flask, make_response, render_template, request
 
-from .forms import DateForm
+from fitnick.flask_app.forms import DateForm
 from fitnick.activity.activity import Activity
 from fitnick.database.database import Database
 from fitnick.heart_rate.models import heart_daily_table
