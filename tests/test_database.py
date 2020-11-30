@@ -1,28 +1,10 @@
-import decimal
 import os
 
 import pytest
-from sqlalchemy.exc import IntegrityError
 
 from fitnick.database.database import Database
 from fitnick.heart_rate.models import heart_daily_table
 from fitnick.heart_rate.time_series import HeartRateTimeSeries
-
-
-@pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
-def test_compare_1d_heart_rate_zone_data():
-    database = Database('fitbit_test', 'heart')
-    try:
-        HeartRateTimeSeries(config={}).get_heart_rate_zone_for_day(database='fitbit_test', target_date='2020-09-04')
-    except IntegrityError:
-        # for the purpose of this test, we don't care if the data is already there for 2020-09-04
-        pass
-
-    heart_rate_zone, minutes_in_zone_today, minutes_in_zone_yesterday = database.compare_1d_heart_rate_zone_data(
-        table=heart_daily_table, heart_rate_zone='Cardio', date_str='2020-09-05')
-
-    assert (heart_rate_zone, type(minutes_in_zone_today), type(minutes_in_zone_yesterday)) == (
-        'Cardio', decimal.Decimal, decimal.Decimal)
 
 
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
