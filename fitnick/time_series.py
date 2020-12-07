@@ -9,7 +9,6 @@ from sqlalchemy.orm import sessionmaker
 from tqdm import tqdm
 
 from fitnick.base.base import get_authorized_client
-from fitnick.database.database import Database
 
 
 def plot(config):

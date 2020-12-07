@@ -4,7 +4,6 @@ from sqlalchemy.orm import sessionmaker
 
 from fitnick.base.base import get_authorized_client
 from fitnick.body.models.bodyfat import BodyFatRecord, bodyfat_table
-from fitnick.database.database import Database
 from fitnick.time_series import set_dates
 
 

@@ -7,7 +7,6 @@ import pytest
 from fitnick.body.bodyfat.bodyfat import BodyFat
 from fitnick.body.models.bodyfat import BodyFatRecord, bodyfat_table
 from fitnick.body.weight.time_series import WeightTimeSeries
-from fitnick.database.database import Database
 from fitnick.time_series import plot
 
 EXPECTED_WEIGHT_RESPONSE = {'body-weight': [{'dateTime': '2020-09-05', 'value': '176.0'}]}

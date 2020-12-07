@@ -1,8 +1,9 @@
 import os
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.pool import NullPool
 
-from fitnick.database.database import Database
 from fitnick.sleep.models import sleep_summary_table
 from fitnick.sleep.time_series import SleepTimeSeries
 
@@ -13,8 +14,14 @@ EXPECTED_API_RESPONSE = {'sleep': [{'dateOfSleep': '2020-09-05', 'duration': 324
 
 @pytest.mark.skipif(os.getenv("TEST_LEVEL") != "local", reason='Travis-CI issues')
 def test_query_sleep_data():
-    database = Database('fitbit_test', 'sleep')
-    connection = database.engine.connect()
+    database_name = 'fitbit_test'
+
+    engine = create_engine(
+        f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
+        f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
+        f":5432/{database_name}", poolclass=NullPool
+    )
+    connection = engine.connect()
 
     connection.execute(sleep_summary_table.delete())
 
