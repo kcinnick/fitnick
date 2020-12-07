@@ -1,15 +1,17 @@
 import datetime
+import os
 from datetime import timedelta
 
 from pyspark.sql import functions as F
+from sqlalchemy import create_engine
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
 from fitnick.activity.models.calories import Calories, calories_table
 from fitnick.base.base import get_authorized_client, get_df_from_db, create_spark_session
-from fitnick.database.database import Database
 
 
 class Activity:
@@ -153,8 +155,12 @@ class Activity:
 
         raw_calorie_summary = self.query_calorie_summary()
         row = self.parse_calorie_summary(self.config['base_date'], raw_calorie_summary)
-        database = Database(self.config['database'], 'activity')
-        self.insert_calorie_data(database, row)
+        engine = create_engine(
+            f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
+            f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
+            f":5432/{self.config['database']}", poolclass=NullPool
+        )
+        self.insert_calorie_data(engine, row)
 
         return row
 

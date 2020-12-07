@@ -1,11 +1,12 @@
 import os
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.pool import NullPool
 
 from fitnick.activity.activity import Activity  # ugly import for now, but there are bigger fish to fry..
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
 from fitnick.activity.models.calories import Calories, calories_table
-from fitnick.database.database import Database
 from fitnick.time_series import plot_rolling_average
 
 EXPECTED_DAILY_ACTIVITY_RESPONSE = {
@@ -80,15 +81,19 @@ def test_parse_daily_activity_summary():
 
 
 def test_insert_daily_activity_summary():
-    database = Database('fitbit_test', 'activity')
-    connection = database.engine.connect()
+    engine = create_engine(
+            f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
+            f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
+            f":5432/fitbit_test", poolclass=NullPool
+        )
+    connection = engine.connect()
 
     connection.execute(activity_log_table.delete())
     activity = Activity(
         config={'database': 'fitbit_test',
                 'base_date': '2020-10-01'}
     )
-    rows = activity.insert_log_data(database, EXPECTED_DAILY_ACTIVITY_ROWS)
+    rows = activity.insert_log_data(connection, EXPECTED_DAILY_ACTIVITY_ROWS)
     assert len(rows) == 5
 
 
@@ -103,26 +108,38 @@ def test_query_calorie_summary():
 
 
 def test_insert_calorie_data():
-    database = Database('fitbit_test', 'activity')
-    connection = database.engine.connect()
+    engine = create_engine(
+            f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
+            f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
+            f":5432/fitbit_test", poolclass=NullPool
+        )
 
+    connection = engine.connect()
     connection.execute(calories_table.delete())
+
     activity = Activity(
         config={'database': 'fitbit_test',
                 'base_date': '2020-10-01'}
     )
     raw_data = activity.query_calorie_summary()
     row = activity.parse_calorie_summary('2020-10-01', raw_data)
-    inserted_row = activity.insert_calorie_data(database, row)
+    inserted_row = activity.insert_calorie_data(engine, row)
 
     assert inserted_row == Calories(date='2020-10-01', total=3116, calories_bmr=1838, activity_calories=1467)
 
 
 def test_backfill_calories():
-    database = Database('fitbit_test', 'activity')
-    connection = database.engine.connect()
+    database = 'fitbit_test'
+
+    engine = create_engine(
+        f"postgresql+psycopg2://{os.environ['POSTGRES_USERNAME']}:" +
+        f"{os.environ['POSTGRES_PASSWORD']}@{os.environ['POSTGRES_IP']}" +
+        f":5432/{database}", poolclass=NullPool
+    )
+
+    connection = engine.connect()
     activity = Activity(
-        config={'database': 'fitbit_test'}
+        config={'database': database}
     )
 
     connection.execute(calories_table.delete())
