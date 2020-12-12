@@ -100,9 +100,12 @@ def create_spark_session():
 def introspect_tokens(access_token=None, refresh_token=None):
     import requests
 
-    if not access_token:
+    if not access_token and os.getenv('TEST_LEVEL') == 'LOCAL':
         access_token_data = {'token': open(os.getcwd().replace('tests', '') + '/fitbit_access_key.txt', 'r').read().strip()}
         refresh_token_data = {'token': open(os.getcwd().replace('tests', '') + '/fitbit_refresh_token.txt', 'r').read().strip()}
+    elif os.getenv('TEST_LEVEL') == 'TRAVIS':
+        access_token_data = {'token': os.getenv('FITBIT_ACCESS_KEY')}
+        refresh_token_data = {'token': os.getenv('FITBIT_REFRESH_TOKEN')}
     else:
         access_token_data = {'token': access_token}
         refresh_token_data = {'token': refresh_token}
