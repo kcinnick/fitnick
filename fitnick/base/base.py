@@ -12,11 +12,18 @@ def get_authorized_client() -> fitbit.Fitbit:
     creates an authorized Fitbit client for a user's credentials.
     :return: Authorized Fitbit client
     """
+
+    with open(os.getcwd().replace('tests', '') + 'fitbit_access_key.txt', 'r') as f:
+        access_key = f.read().strip()
+
+    with open(os.getcwd().replace('tests', '') + 'fitbit_refresh_token.txt', 'r') as f:
+        refresh_token = f.read().strip()
+
     authorized_client = fitbit.Fitbit(
         os.environ['FITBIT_CONSUMER_KEY'],
         os.environ['FITBIT_CONSUMER_SECRET'],
-        os.environ['FITBIT_ACCESS_KEY'],
-        os.environ['FITBIT_REFRESH_TOKEN']
+        access_key,
+        refresh_token
     )
 
     if authorized_client.sleep:
@@ -94,8 +101,8 @@ def introspect_tokens(access_token=None, refresh_token=None):
     import requests
 
     if not access_token:
-        access_token_data = {'token': os.environ['FITBIT_ACCESS_KEY']}
-        refresh_token_data = {'token': os.environ['FITBIT_REFRESH_TOKEN']}
+        access_token_data = {'token': open(os.getcwd().replace('tests', '') + '/fitbit_access_key.txt', 'r').read().strip()}
+        refresh_token_data = {'token': open(os.getcwd().replace('tests', '') + '/fitbit_refresh_token.txt', 'r').read().strip()}
     else:
         access_token_data = {'token': access_token}
         refresh_token_data = {'token': refresh_token}
