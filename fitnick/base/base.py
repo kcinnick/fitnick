@@ -12,11 +12,21 @@ def get_authorized_client() -> fitbit.Fitbit:
     creates an authorized Fitbit client for a user's credentials.
     :return: Authorized Fitbit client
     """
+    if os.getenv('TEST_LEVEL') == 'local':
+        with open(r'C:\Users\devni\PycharmProjects\fitnick\fitnick\base\fitbit_access_key.txt', 'r') as f:
+            access_key = f.read().strip()
+
+        with open(r'C:\Users\devni\PycharmProjects\fitnick\fitnick\base\fitbit_refresh_token.txt', 'r') as f:
+            refresh_token = f.read().strip()
+    else:
+        access_key = os.getenv('FITBIT_ACCESS_KEY')
+        refresh_token = os.getenv('FITBIT_REFRESH_TOKEN')
+
     authorized_client = fitbit.Fitbit(
         os.environ['FITBIT_CONSUMER_KEY'],
         os.environ['FITBIT_CONSUMER_SECRET'],
-        os.environ['FITBIT_ACCESS_KEY'],
-        os.environ['FITBIT_REFRESH_TOKEN']
+        access_key,
+        refresh_token
     )
 
     if authorized_client.sleep:
@@ -93,16 +103,20 @@ def create_spark_session():
 def introspect_tokens(access_token=None, refresh_token=None):
     import requests
 
-    if not access_token:
-        access_token_data = {'token': os.environ['FITBIT_ACCESS_KEY']}
-        refresh_token_data = {'token': os.environ['FITBIT_REFRESH_TOKEN']}
-    else:
+    if not access_token and os.getenv('TEST_LEVEL') == 'local':
+        access_token_data = {'token': open(os.getcwd().replace('tests', '') + '/fitbit_access_key.txt', 'r').read().strip()}
+        refresh_token_data = {'token': open(os.getcwd().replace('tests', '') + '/fitbit_refresh_token.txt', 'r').read().strip()}
+    elif os.getenv('TEST_LEVEL') == 'TRAVIS':
+        access_token_data = {'token': os.getenv('FITBIT_ACCESS_KEY')}
+        refresh_token_data = {'token': os.getenv('FITBIT_REFRESH_TOKEN')}
+    elif access_token:
         access_token_data = {'token': access_token}
         refresh_token_data = {'token': refresh_token}
 
     default_string = "{} is {}."
 
     headers = {'clientId': os.environ['FITBIT_CONSUMER_KEY'],
+               'Content-length': '999',
                'Content-Type': 'application/x-www-form-urlencoded',
                'Authorization': f"Basic {os.environ['FITBIT_AUTH_HEADER']}"}
 
@@ -117,11 +131,20 @@ def introspect_tokens(access_token=None, refresh_token=None):
             )
             if r.json()['active']:
                 print(default_string.format(identifier, 'active'))
+                if identifier == 'Access token':
+                    access_token_valid = True
+                    continue
+                else:
+                    refresh_token_valid = True
+                    continue
             else:
                 if identifier != 'Refresh token':
                     print(default_string.format(identifier, 'expired. Please update'))
-                    valid = False
+                    access_token_valid = False
+                    continue
                 else:
                     print('Refresh token is valid.')
+                    refresh_token_valid = True
+                    continue
 
-    return valid
+    return access_token_valid, refresh_token_valid
