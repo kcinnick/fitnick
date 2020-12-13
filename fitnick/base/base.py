@@ -12,12 +12,15 @@ def get_authorized_client() -> fitbit.Fitbit:
     creates an authorized Fitbit client for a user's credentials.
     :return: Authorized Fitbit client
     """
+    if os.getenv('TEST_LEVEL') == 'local':
+        with open(r'C:\Users\devni\PycharmProjects\fitnick\fitnick\base\fitbit_access_key.txt', 'r') as f:
+            access_key = f.read().strip()
 
-    with open(r'C:\Users\devni\PycharmProjects\fitnick\fitnick\base\fitbit_access_key.txt', 'r') as f:
-        access_key = f.read().strip()
-
-    with open(r'C:\Users\devni\PycharmProjects\fitnick\fitnick\base\fitbit_refresh_token.txt', 'r') as f:
-        refresh_token = f.read().strip()
+        with open(r'C:\Users\devni\PycharmProjects\fitnick\fitnick\base\fitbit_refresh_token.txt', 'r') as f:
+            refresh_token = f.read().strip()
+    else:
+        access_key = os.getenv('FITBIT_ACCESS_KEY')
+        refresh_token = os.getenv('FITBIT_REFRESH_TOKEN')
 
     authorized_client = fitbit.Fitbit(
         os.environ['FITBIT_CONSUMER_KEY'],

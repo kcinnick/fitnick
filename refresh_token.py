@@ -5,11 +5,16 @@ from fitnick.base.base import introspect_tokens
 def refresh_authorized_client():
     import requests
     with requests.session() as session:
-        data = {
-            'grant_type': 'refresh_token',
-            'refresh_token': os.environ['FITBIT_REFRESH_TOKEN'],
-            'expires_in': 31536000  # 12 hours
-        }
+        with open('fitnick/base/fitbit_refresh_token.txt', 'r') as f:
+            refresh_token = f.read().strip()
+            with open('fitnick/base/fitbit_refresh_token_old.txt', 'w') as f:
+                #  write the old token to file, just in case..
+                f.write(refresh_token)
+            data = {
+                'grant_type': 'refresh_token',
+                'refresh_token': refresh_token,
+                'expires_in': 31536000  # 12 hours
+            }
         r = session.post(
             url='https://api.fitbit.com/oauth2/token',
             data=data,
@@ -40,4 +45,9 @@ def auto_refresh():
         print('access token valid')
 
 
-auto_refresh()
+def main():
+    auto_refresh()
+
+
+if __name__ == '__main__':
+    main()
