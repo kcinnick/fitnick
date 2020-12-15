@@ -9,7 +9,6 @@ from sqlalchemy.orm import sessionmaker
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
 from fitnick.activity.models.calories import Calories, calories_table
 from fitnick.base.base import get_authorized_client, get_df_from_db, create_spark_session
-from fitnick.database.database import Database
 
 
 class Activity:
@@ -149,6 +148,8 @@ class Activity:
         :param day: str, day to get calorie data for
         :return:
         """
+        from fitnick.database.database import Database
+
         self.config.update({'base_date': day})
 
         raw_calorie_summary = self.query_calorie_summary()
