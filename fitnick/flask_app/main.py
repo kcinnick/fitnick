@@ -5,6 +5,7 @@ from flask import Flask, make_response, render_template, request
 
 from fitnick.flask_app.forms import DateForm
 from fitnick.activity.activity import Activity
+from fitnick.apis.get_steps import get_steps_for_day
 from fitnick.database.database import Database
 from fitnick.heart_rate.models import heart_daily_table
 from fitnick.heart_rate.time_series import HeartRateTimeSeries
@@ -114,6 +115,13 @@ def get_activity_today():
         day_options=day_options,
         year_options=year_options
     )
+
+
+@app.route("/get_steps", methods=['GET', 'POST'])
+def get_steps():
+    steps = get_steps_for_day()
+    print(steps)
+    return str(steps) + '\n'
 
 
 @app.route('/<page_name>')
