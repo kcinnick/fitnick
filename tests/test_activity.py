@@ -3,7 +3,7 @@ import os
 import pytest
 
 from fitnick.activity.activity import Activity  # ugly import for now, but there are bigger fish to fry..
-from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
+from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table, steps_intraday_table
 from fitnick.activity.models.calories import Calories, calories_table
 from fitnick.database.database import Database
 from fitnick.time_series import plot_rolling_average
@@ -47,6 +47,19 @@ def test_insert_daily_activity_summary():
     connection = database.engine.connect()
 
     connection.execute(activity_log_table.delete())
+    activity = Activity(
+        config={'database': 'fitbit_test',
+                'base_date': '2020-10-01'}
+    )
+    rows = activity.insert_log_data(database, EXPECTED_DAILY_ACTIVITY_ROWS)
+    assert len(rows) == 5
+
+
+def test_insert_intraday_steps():
+    database = Database('fitbit_test', 'activity')
+    connection = database.engine.connect()
+
+    connection.execute(activity_steps_intraday_table.delete())
     activity = Activity(
         config={'database': 'fitbit_test',
                 'base_date': '2020-10-01'}
@@ -126,3 +139,17 @@ def test_plot_rolling_average():
                 'end_date': '2020-10-29'}
     )
     plot_rolling_average(activity.config)
+
+
+def test_qsi():
+    activity = Activity(
+        config={'database': 'fitbit_test',
+                'table': 'calories',
+                'sum_column': 'total',
+                'base_date': '2020-12-26'
+                }
+    )
+    database = Database('fitbit_test', 'activity')
+    response = activity.insert_steps_intraday(database)
+    from pprint import pprint
+    pprint(response)
