@@ -12,11 +12,11 @@ EXPECTED_DAILY_ACTIVITY_RESPONSE = {'activities': [{'activityId': 20049, 'activi
 
 
 EXPECTED_DAILY_ACTIVITY_ROWS = [
-    ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=34686180447, calories=170, distance=0.987632, duration=1233000, duration_minutes=20.55, start_date='2020-10-01', start_time='00:10', steps=2030),
-    ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=34685023369, calories=99, distance=0.577689, duration=767000, duration_minutes=12.783333333333333, start_date='2020-10-01', start_time='13:55', steps=1218),
-    ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=34687543940, calories=59, distance=0.040327, duration=2124000, duration_minutes=35.4, start_date='2020-10-01', start_time='16:22', steps=114),
-    ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=34684730042, calories=104, distance=0.440571, duration=815000, duration_minutes=13.583333333333334, start_date='2020-10-01', start_time='19:01', steps=977),
-    ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=34687447116, calories=481, distance=2.876452, duration=3402000, duration_minutes=56.7, start_date='2020-10-01', start_time='22:10', steps=6012)
+    ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=36487726513, calories=91, distance=0.577838, duration=679000, duration_minutes=11.316666666666666, start_date='2020-12-24', start_time='10:44', steps=1236),
+    ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=36487795727, calories=184, distance=1.178393, duration=1552000, duration_minutes=25.866666666666667, start_date='2020-12-24', start_time='11:37', steps=2524),
+    ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=36489026309, calories=77, distance=0.492319, duration=608000, duration_minutes=10.133333333333333, start_date='2020-12-24', start_time='13:50', steps=1035),
+    ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=36489666573, calories=126, distance=0.754637, duration=1099000, duration_minutes=18.316666666666666, start_date='2020-12-24', start_time='19:01', steps=1618),
+    ActivityLogRecord(activity_id=20049, activity_name='Treadmill', log_id=36489745633, calories=255, distance=1.671799, duration=1969000, duration_minutes=32.81666666666667, start_date='2020-12-24', start_time='22:17', steps=3502)
 ]
 
 EXPECTED_COMPARE_CALORIE_ROWS = []
@@ -35,7 +35,7 @@ def test_query_daily_activity_summary():
 def test_parse_daily_activity_summary():
     activity = Activity(
         config={'database': 'fitbit_test',
-                'base_date': '2020-10-01'}
+                'base_date': '2020-12-24'}
     )
     rows = activity.parse_activity_log(EXPECTED_DAILY_ACTIVITY_RESPONSE)
 
