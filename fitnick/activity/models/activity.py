@@ -45,3 +45,14 @@ activity_log_table = Table(
     UniqueConstraint('log_id', name='log_id'),
     schema='activity'
 )
+
+
+steps_intraday_table = Table(
+    'steps_intraday',
+    meta,
+    Column('date', VARCHAR, nullable=False, primary_key=True),
+    Column('time', VARCHAR, primary_key=True),
+    Column('steps', Integer()),
+    UniqueConstraint('date', 'time', name='date_time'),
+    schema='activity',
+)
