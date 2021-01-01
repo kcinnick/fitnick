@@ -59,7 +59,7 @@ def test_insert_intraday_steps():
     database = Database('fitbit_test', 'activity')
     connection = database.engine.connect()
 
-    connection.execute(activity_steps_intraday_table.delete())
+    connection.execute(steps_intraday_table.delete())
     activity = Activity(
         config={'database': 'fitbit_test',
                 'base_date': '2020-10-01'}
@@ -141,7 +141,7 @@ def test_plot_rolling_average():
     plot_rolling_average(activity.config)
 
 
-def test_qsi():
+def test_insert_steps_intraday():
     activity = Activity(
         config={'database': 'fitbit_test',
                 'table': 'calories',
@@ -151,5 +151,3 @@ def test_qsi():
     )
     database = Database('fitbit_test', 'activity')
     response = activity.insert_steps_intraday(database)
-    from pprint import pprint
-    pprint(response)
