@@ -5,8 +5,9 @@ from pyspark.sql import functions as F
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
+from tqdm import tqdm
 
-from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table
+from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table, steps_intraday_table
 from fitnick.activity.models.calories import Calories, calories_table
 from fitnick.base.base import get_authorized_client, get_df_from_db, create_spark_session
 
@@ -18,6 +19,22 @@ class Activity:
         self.config['resource'] = 'activity'
         self.config['schema'] = 'activity'
         return
+
+    def query_steps_intraday(self):
+        response = self.authorized_client.make_request(
+            'https://api.fitbit.com/1/user/-/activities/steps/date/{}/1d.json'.format(
+                self.config['base_date']
+            ))
+
+        return response['activities-steps-intraday']
+
+    def parse_steps_intraday(self, query):
+        parsed_rows = []
+        for row in query['dataset']:
+            parsed_rows.append(row)
+            #  do a fancier parse later..
+
+        return parsed_rows
 
     def query_daily_activity_summary(self):
         """
@@ -77,6 +94,29 @@ class Activity:
         )
 
         return row
+
+    def insert_steps_intraday(self, database):
+        # updates intraday
+        # write logic such that the query can be structured based off what time it is
+        # and what last-time is in the database.
+        session = sessionmaker(bind=database.engine)()
+        query = self.query_steps_intraday()
+        parsed_rows = self.parse_steps_intraday(query)
+        for row in tqdm(parsed_rows):
+            insert_statement = insert(steps_intraday_table).values(
+                date=self.config['base_date'],
+                time=row['time'],
+                steps=row['value']
+            )
+            try:
+                session.execute(insert_statement)
+                session.commit()
+            except IntegrityError:  # record already exists
+                session.rollback()
+                print(f'Log {self.config["base_date"] + " " + row["time"]} already exists.')
+                continue
+
+        return
 
     @staticmethod
     def insert_log_data(database, parsed_rows):
