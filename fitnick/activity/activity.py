@@ -102,7 +102,7 @@ class Activity:
         session = sessionmaker(bind=database.engine)()
         query = self.query_steps_intraday()
         parsed_rows = self.parse_steps_intraday(query)
-        for row in tqdm(parsed_rows):
+        for row in parsed_rows:
             insert_statement = insert(steps_intraday_table).values(
                 date=self.config['base_date'],
                 time=row['time'],
@@ -113,7 +113,7 @@ class Activity:
                 session.commit()
             except IntegrityError:  # record already exists
                 session.rollback()
-                print(f'Log {self.config["base_date"] + " " + row["time"]} already exists.')
+                print(f'Log {str(self.config["base_date"]) + " " + row["time"]} already exists.\n')
                 continue
 
         return
