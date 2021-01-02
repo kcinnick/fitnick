@@ -2,6 +2,11 @@
     <meta charset="UTF-8">
 <body>
 {% block content %}
-    {{ index }}
+
+    steps taken on {{ base_date }}: <b>{{ steps }}</b>
+    <br>
+    <br>
+    as of: <b>{{ time }}</b>
+
 {% endblock %}
 </body>
