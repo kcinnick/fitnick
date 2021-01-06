@@ -75,7 +75,7 @@ def batch_load_steps(start_date='2020-01-01', end_date='2021-01-01'):
     start_date = date(2020, 1, 1)  # start date
     database = Database('fitbit', 'activity')
     end_date = set_batch_end_date(database, start_date)
-    #end_date = date(2020, 9, 14)  # end date
+    end_date = date(2020, 8, 7)  # end date
 
     delta = end_date - start_date  # as timedelta
     activity_api = Activity(config={'base_date': ''})
@@ -84,6 +84,7 @@ def batch_load_steps(start_date='2020-01-01', end_date='2021-01-01'):
         day = start_date + timedelta(days=i)
         activity_api.config['base_date'] = day
         response = activity_api.insert_steps_intraday(database)
+        print(response)
 
 
 def check_if_steps_need_update(base_date='2021-01-01'):
