@@ -59,19 +59,29 @@ def get_steps_for_day():
     return int(steps_this_time)
 
 
+def set_batch_end_date(database, start_date):
+    statement = """SELECT DISTINCT date, SUM(steps)
+                    FROM activity.steps_intraday
+                    GROUP BY date
+                    HAVING sum(steps) > 0
+                    LIMIT 1;"""
+    response = database.engine.execute(statement)
+    for item in response:
+        return item[0]
+    #  return date(x, y, z) object
+
+
 def batch_load_steps(start_date='2020-01-01', end_date='2021-01-01'):
-    steps_last_time = 0
-    steps_this_time = 0
+    start_date = date(2020, 1, 1)  # start date
+    database = Database('fitbit', 'activity')
+    end_date = set_batch_end_date(database, start_date)
+    #end_date = date(2020, 9, 14)  # end date
 
-    sdate = date(2020, 1, 1)  # start date
-    edate = date(2020, 11, 18)  # end date
-
-    delta = edate - sdate  # as timedelta
+    delta = end_date - start_date  # as timedelta
     activity_api = Activity(config={'base_date': ''})
 
-    database = Database('fitbit', 'activity')
     for i in tqdm(list(reversed(range(delta.days + 1)))):
-        day = sdate + timedelta(days=i)
+        day = start_date + timedelta(days=i)
         activity_api.config['base_date'] = day
         response = activity_api.insert_steps_intraday(database)
 
