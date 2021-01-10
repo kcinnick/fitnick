@@ -113,7 +113,7 @@ class Activity:
                 session.commit()
             except IntegrityError:  # record already exists
                 session.rollback()
-                print(f'Log {self.config["base_date"] + " " + row["time"]} already exists.')
+                print(f'Log {str(self.config["base_date"]) + " " + row["time"]} already exists.')
                 continue
 
         return
