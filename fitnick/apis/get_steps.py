@@ -24,7 +24,7 @@ def get_steps_for_day():
 
     for i in range(delta.days + 1):
         day = sdate + timedelta(days=i)
-        activity_api.config['base_date'] =  day
+        activity_api.config['base_date'] = day
         response = activity_api.insert_steps_intraday()
 
         steps_this_time = response['summary']['steps']
@@ -72,11 +72,10 @@ def set_batch_end_date(database, start_date):
 
 
 def batch_load_steps(start_date='2020-01-01', end_date='2021-01-01'):
-    start_date = date(2020, 1, 1)  # start date
+    start_date = date(2021, 1, 1)  # start date
     database = Database('fitbit', 'activity')
-    end_date = set_batch_end_date(database, start_date)
-    end_date = date(2020, 8, 7)  # end date
-
+    # end_date = set_batch_end_date(database, start_date)
+    end_date = date(2021, 1, 6)  # end date
     delta = end_date - start_date  # as timedelta
     activity_api = Activity(config={'base_date': ''})
 
@@ -116,8 +115,31 @@ def check_if_steps_need_update(base_date='2021-01-01'):
     return match
 
 
+def get_avg_steps_over_last_week(period='7d'):
+    database = Database('fitbit', 'activity')
+    end_date = datetime.today()
+    start_date = end_date - timedelta(days=period)
+    database = Database('fitbit', 'activity')
+    connection = database.engine.connect()
+    response = connection.execute(
+        f"""
+SELECT date, SUM(STEPS)
+	FROM activity.steps_intraday
+	WHERE DATE between '{start_date}' and '{end_date}'
+	GROUP BY date
+	ORDER BY date DESC
+        """
+    ).fetchall()
+    steps = []
+    for i in response:
+        steps.append(i[1])
+    print(sum(steps))
+    return
+
+
 def main():
-    batch_load_steps()
+    #batch_load_steps()
+    get_avg_steps_over_last_week(7)
 
 
 if __name__ == '__main__':
