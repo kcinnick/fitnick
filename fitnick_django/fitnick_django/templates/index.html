@@ -3,7 +3,11 @@
 <body>
 {% block content %}
 <center>
-    <font size="22">The number of steps you took on {{ base_date }} was <big>{{ steps }}</big>.</font>
+    {% if today %}
+        <font size="22">The number of steps you've taken so far today is <big>{{ steps }}</big>.</font>
+    {% else %}}
+        <font size="22">The number of steps you took on {{ base_date }} was <big>{{ steps }}</big>.</font>
+    {% endif %}
 </center>
 {% endblock %}
 </body>
