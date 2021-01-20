@@ -5,20 +5,7 @@ from fitnick.activity.activity import Activity
 
 
 def index(request):
-    today_date = datetime.today().strftime('%Y-%m-%d')
-    activity_api = Activity(config={'base_date': today_date})
-    response = activity_api.query_daily_activity_summary()
-    steps_this_time = response['summary']['steps']
-    dt = datetime.now()
-    print(steps_this_time, dt)
-    index_context = {
-        "today": True,
-        "base_date": activity_api.config['base_date'],
-        "steps": steps_this_time,
-        "time": str(dt)
-    }
-
-    return render(request, 'index.html', index_context)
+    return render(request, 'base.html')
 
 
 def get_steps_today(request):
@@ -28,7 +15,7 @@ def get_steps_today(request):
     response = activity_api.query_daily_activity_summary()
     steps_this_time = response['summary']['steps']
     dt = datetime.now()
-    print(steps_this_time, dt)
+    percent = (steps_this_time / 12000) * 100
     # TODO:
     # show a table of last x days of steps
     index_context = {
@@ -36,7 +23,10 @@ def get_steps_today(request):
         "today": True,
         "steps": steps_this_time,
         "time": str(dt),
-        "goal": goal
+        "goal": goal,
+        "percent": percent,
+        "percent_str": str(percent)[:4]
     }
 
     return render(request, 'index.html', index_context)
+
