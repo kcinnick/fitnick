@@ -25,7 +25,7 @@ def get_steps_today(request):
         "time": str(dt),
         "goal": goal,
         "percent": percent,
-        "percent_str": str(percent)[:4]
+        "percent_str": str(percent)[:6]
     }
 
     return render(request, 'index.html', index_context)
