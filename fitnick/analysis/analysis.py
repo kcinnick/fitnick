@@ -2,10 +2,13 @@ import os
 from datetime import datetime, timedelta
 
 import pandas as pd
+from fitnick.base.base import create_spark_session, get_df_from_db
 from sqlalchemy import create_engine
 from sqlalchemy.pool import NullPool
 
 from fitnick.heart_rate.models import heart_daily_table
+
+from pyspark.sql import functions as F
 
 
 def get_calories_for_month(database='fitbit'):
@@ -73,8 +76,20 @@ def compare_1d_heart_rate_zone_data(heart_rate_zone, date_str, table=heart_daily
     return heart_rate_zone, day_row.minutes, previous_day_row.minutes
 
 
+def compare_steps_by_day(database='fitbit'):
+    spark_session = create_spark_session()
+    df = get_df_from_db(
+        spark_session=spark_session, database=database, schema='activity', table='steps_intraday')
+    today_df = df.where(F.col('date') == '2021-01-03')
+    yesterday_df = df.where(F.col('date') == '2021-01-06')
+
+    print(today_df.groupBy().sum().collect())
+    print(yesterday_df.groupBy().sum().collect())
+
+
 def main():
-    get_calories_for_month()
+    # get_calories_for_month()
+    compare_steps_by_day()
 
 
 if __name__ == '__main__':

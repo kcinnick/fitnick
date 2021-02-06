@@ -3,7 +3,18 @@
 <body>
 {% block content %}
 <center>
-    <font size="22">The number of steps you took on {{ base_date }} was <big>{{ steps }}</big>.</font>
+    <big><progress id="steps" value="{{ percent }}" max="100"> {{ percent }}% </progress></big>
+    <br><br>
+
+    {% if today %}
+        <font size="22">The number of steps you've taken so far today is <big>{{ steps }}</big>.</font>
+            <br><br>
+        <font size="11">You're {{ percent_str }}% of the way to {{ goal }}!  Woohoo!</font>
+    {% else %}}
+        <font size="11">The number of steps you took on {{ base_date }} was <big>{{ steps }}</big>.</font>
+    {% endif %}
+
+
 </center>
 {% endblock %}
 </body>
