@@ -31,6 +31,23 @@ Two endpoints are intended for early deployment validation:
 
 The data-model code under ``fitnick`` still supports historical sync work, but the deployment scaffold now favors live API reads for current-state views and a Google Health migration path.
 
+Google Health token quickstart
+-------
+
+1. Create a Google OAuth client and enable the Google Health API (see https://developers.google.com/health/setup).
+2. Generate a consent URL:
+
+   ``python google_health_token.py auth-url --client-id "<client-id>" --prompt-consent``
+
+3. Open the URL, approve scopes, and copy the returned ``code`` query parameter.
+4. Exchange the code for tokens:
+
+   ``python google_health_token.py exchange-code --client-id "<client-id>" --client-secret "<client-secret>" --code "<code>" --print-env``
+
+5. Apply the printed environment variables, then verify:
+
+   ``python fitnick_django/manage.py runserver`` and open ``/health/smoke``.
+
 * Free software: MIT license
 * Documentation: https://fitnick.readthedocs.io.
 
