@@ -16,12 +16,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from .views import fitbit_smoke_test, get_steps_today, healthcheck, index
+from .views import fitbit_smoke_test, get_steps_today, health_smoke_test, healthcheck, index
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', index),
     path('steps/today', get_steps_today),
     path('healthz', healthcheck),
+    path('health/smoke', health_smoke_test),
     path('fitbit/smoke', fitbit_smoke_test),
 ]

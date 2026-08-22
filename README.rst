@@ -9,23 +9,27 @@ fitnick
 .. image:: https://img.shields.io/travis/kcinnick/fitnick.svg
         :target: https://travis-ci.com/kcinnick/fitnick
 
-Hacking around on the Python implementation of the Fitbit API with my own Fitbit.
+Hacking around on health data integrations with a migration path from Fitbit Web APIs to Google Health APIs.
 
-I created this for my own curiosity, but if you'd like to use it, you'll have to set the environment variables for ``FITBIT_CONSUMER_KEY``, ``FITBIT_CONSUMER_SECRET``, ``FITBIT_ACCESS_KEY`` and ``FITBIT_REFRESH_TOKEN`` using this tutorial: https://dev.fitbit.com/apps/oauthinteractivetutorial?clientEncodedId=&clientSecret=&redirectUri=https://dev.fitbit.com/&applicationType=SERVER.
+I created this for my own curiosity, but if you'd like to use it for live API reads, configure ``FITNICK_HEALTH_PROVIDER`` with ``google`` (default) or ``fitbit`` and provide the matching access token:
+
+* Google Health: ``GOOGLE_HEALTH_ACCESS_TOKEN``
+* Fitbit (legacy): ``FITBIT_ACCESS_TOKEN`` or ``FITBIT_ACCESS_KEY``
 
 Runs on top of Google Cloud Platform (https://console.cloud.google.com/) and uses `postgresql` as a database.  `PySpark` is used for data analysis & large querying - otherwise, `SQLAlchemy` is sufficient and is used instead.
 
 Current direction
 -------
 
-The repo now includes a Render-first scaffold for ``fitnick_django`` so the web surface can act as a thin Fitbit integration service instead of assuming full PostgreSQL replication of Fitbit data.
+The repo now includes a Render-first scaffold for ``fitnick_django`` so the web surface can act as a thin health integration service instead of assuming full PostgreSQL replication of API data.
 
 Two endpoints are intended for early deployment validation:
 
 * ``/healthz`` confirms the Django service is up.
-* ``/fitbit/smoke`` attempts a live Fitbit profile request with ``FITBIT_ACCESS_TOKEN`` or ``FITBIT_ACCESS_KEY`` and reports whether the current credentials work.
+* ``/health/smoke`` attempts a live API identity request through the currently selected provider and reports whether credentials work.
+* ``/fitbit/smoke`` remains as a compatibility alias to ``/health/smoke``.
 
-The data-model code under ``fitnick`` still supports historical sync work, but the deployment scaffold now favors live API reads for current-state views.
+The data-model code under ``fitnick`` still supports historical sync work, but the deployment scaffold now favors live API reads for current-state views and a Google Health migration path.
 
 * Free software: MIT license
 * Documentation: https://fitnick.readthedocs.io.

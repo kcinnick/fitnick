@@ -14,11 +14,13 @@
                 <font size="11">You're {{ percent_str }}% of the way to {{ goal }}! Woohoo!</font>
             {% endif %}
         {% else %}
-            <font size="6">fitnick is scaffolded as a thin Render-hosted Fitbit service.</font>
+            <font size="6">fitnick is scaffolded as a thin Render-hosted health integration service.</font>
             <br><br>
             <font size="4">Current mode: <big>{{ service_mode }}</big></font>
             <br><br>
-            <font size="4">Use <a href="/fitbit/smoke">/fitbit/smoke</a> to verify live Fitbit access and <a href="/healthz">/healthz</a> for a deploy health check.</font>
+            <font size="4">Provider: <big>{{ provider }}</big></font>
+            <br><br>
+            <font size="4">Use <a href="/health/smoke">/health/smoke</a> to verify live API access and <a href="/healthz">/healthz</a> for a deploy health check.</font>
         {% endif %}
     </center>
 </div>

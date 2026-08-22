@@ -16,6 +16,16 @@ services:
         value: ".onrender.com"
       - key: FITNICK_OFFLINE_MODE
         value: "0"
+      - key: FITNICK_HEALTH_PROVIDER
+        value: "google"
+      - key: GOOGLE_HEALTH_ACCESS_TOKEN
+        sync: false
+      - key: GOOGLE_HEALTH_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_HEALTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_HEALTH_CLIENT_SECRET
+        sync: false
       - key: FITBIT_ACCESS_TOKEN
         sync: false
       - key: FITBIT_ACCESS_KEY
