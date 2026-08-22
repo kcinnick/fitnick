@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: fitnick
+    runtime: python
+    plan: starter
+    buildCommand: pip install -e . "Django>=4.2,<5.1" "gunicorn>=23,<24"
+    startCommand: python fitnick_django/manage.py migrate && gunicorn --chdir fitnick_django fitnick_django.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DJANGO_SETTINGS_MODULE
+        value: fitnick_django.settings
+      - key: DJANGO_DEBUG
+        value: "0"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: FITNICK_OFFLINE_MODE
+        value: "0"
+      - key: FITBIT_ACCESS_TOKEN
+        sync: false
+      - key: FITBIT_ACCESS_KEY
+        sync: false
+      - key: FITBIT_REFRESH_TOKEN
+        sync: false
+      - key: FITBIT_CONSUMER_KEY
+        sync: false
+      - key: FITBIT_CONSUMER_SECRET
+        sync: false
+      - key: FITBIT_AUTH_HEADER
+        sync: false
+      - key: DJANGO_SECRET_KEY
+        generateValue: true

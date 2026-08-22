@@ -15,6 +15,18 @@ I created this for my own curiosity, but if you'd like to use it, you'll have to
 
 Runs on top of Google Cloud Platform (https://console.cloud.google.com/) and uses `postgresql` as a database.  `PySpark` is used for data analysis & large querying - otherwise, `SQLAlchemy` is sufficient and is used instead.
 
+Current direction
+-------
+
+The repo now includes a Render-first scaffold for ``fitnick_django`` so the web surface can act as a thin Fitbit integration service instead of assuming full PostgreSQL replication of Fitbit data.
+
+Two endpoints are intended for early deployment validation:
+
+* ``/healthz`` confirms the Django service is up.
+* ``/fitbit/smoke`` attempts a live Fitbit profile request with ``FITBIT_ACCESS_TOKEN`` or ``FITBIT_ACCESS_KEY`` and reports whether the current credentials work.
+
+The data-model code under ``fitnick`` still supports historical sync work, but the deployment scaffold now favors live API reads for current-state views.
+
 * Free software: MIT license
 * Documentation: https://fitnick.readthedocs.io.
 

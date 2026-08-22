@@ -216,8 +216,12 @@ class TimeSeries:
                 session.commit()
         elif table.fullname == 'weight.daily':
             for row in parsed_rows:
+                insert_date = row.date
+                if isinstance(insert_date, str):
+                    insert_date = datetime.strptime(insert_date, '%Y-%m-%d').date()
+
                 insert_statement = insert(table).values(
-                    date=row.date,
+                    date=insert_date,
                     pounds=row.pounds
                 )
                 session.execute(insert_statement)

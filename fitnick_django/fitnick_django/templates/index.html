@@ -1,20 +1,25 @@
 {% extends 'base.html' %}
-    <meta charset="UTF-8">
-<body>
 {% block content %}
-<center>
-    <big><progress id="steps" value="{{ percent }}" max="100"> {{ percent }}% </progress></big>
-    <br><br>
-
-    {% if today %}
-        <font size="22">The number of steps you've taken so far today is <big>{{ steps }}</big>.</font>
+<div class="main">
+    <center>
+        {% if today %}
+            <big><progress id="steps" value="{{ percent }}" max="100"> {{ percent }}% </progress></big>
             <br><br>
-        <font size="11">You're {{ percent_str }}% of the way to {{ goal }}!  Woohoo!</font>
-    {% else %}}
-        <font size="11">The number of steps you took on {{ base_date }} was <big>{{ steps }}</big>.</font>
-    {% endif %}
 
-
-</center>
+            {% if error %}
+                <font size="5">{{ error }}</font>
+            {% else %}
+                <font size="22">The number of steps you've taken so far today is <big>{{ steps }}</big>.</font>
+                <br><br>
+                <font size="11">You're {{ percent_str }}% of the way to {{ goal }}! Woohoo!</font>
+            {% endif %}
+        {% else %}
+            <font size="6">fitnick is scaffolded as a thin Render-hosted Fitbit service.</font>
+            <br><br>
+            <font size="4">Current mode: <big>{{ service_mode }}</big></font>
+            <br><br>
+            <font size="4">Use <a href="/fitbit/smoke">/fitbit/smoke</a> to verify live Fitbit access and <a href="/healthz">/healthz</a> for a deploy health check.</font>
+        {% endif %}
+    </center>
+</div>
 {% endblock %}
-</body>

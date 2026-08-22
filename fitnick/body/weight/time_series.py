@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fitnick.body.models.weight import WeightRecord
 from fitnick.time_series import TimeSeries
 

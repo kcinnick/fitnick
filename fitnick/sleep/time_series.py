@@ -9,7 +9,9 @@ from fitnick.time_series import TimeSeries
 
 class SleepTimeSeries(TimeSeries):
     def __init__(self, config):
-        super().__init__(config.update({'resource': 'sleep'}))
+        config = dict(config)
+        config['resource'] = 'sleep'
+        super().__init__(config)
         self.authorized_client = get_authorized_client()
         self.authorized_client.API_VERSION = '1.2'
         #  Fitbit is deprecating the 1 version of these endpoints, as described here:

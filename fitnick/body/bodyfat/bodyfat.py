@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -57,8 +59,12 @@ class BodyFat:
         db = Database(self.config['database'], schema=self.config['schema'])
         session = sessionmaker(bind=db.engine)()
         for row in parsed_rows:
+            insert_date = row.date
+            if isinstance(insert_date, str):
+                insert_date = datetime.strptime(insert_date, '%Y-%m-%d').date()
+
             insert_statement = insert(bodyfat_table).values(
-                date=row.date,
+                date=insert_date,
                 fat=row.fat,
                 logid=row.logId,
                 source=row.source,
