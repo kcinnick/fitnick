@@ -16,6 +16,18 @@ DEFAULT_SCOPES = [
 ]
 
 
+def _raise_for_google_oauth_error(response, action):
+    try:
+        payload = response.json()
+        details = json.dumps(payload)
+    except ValueError:
+        details = response.text[:500]
+    raise requests.HTTPError(
+        f'Google OAuth {action} failed ({response.status_code}): {details}',
+        response=response,
+    )
+
+
 def build_authorize_url(client_id, redirect_uri, scopes, state, prompt_consent):
     query = {
         'client_id': client_id,
@@ -44,7 +56,8 @@ def exchange_code(client_id, client_secret, redirect_uri, code):
         },
         timeout=30,
     )
-    response.raise_for_status()
+    if not response.ok:
+        _raise_for_google_oauth_error(response, 'code exchange')
     return response.json()
 
 
@@ -59,7 +72,8 @@ def refresh_access_token(client_id, client_secret, refresh_token):
         },
         timeout=30,
     )
-    response.raise_for_status()
+    if not response.ok:
+        _raise_for_google_oauth_error(response, 'token refresh')
     return response.json()
 
 
