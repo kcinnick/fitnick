@@ -3,6 +3,7 @@ services:
     name: fitnick
     runtime: python
     plan: starter
+    healthCheckPath: /healthz
     buildCommand: pip install -e . "Django>=4.2,<5.1" "gunicorn>=23,<24"
     startCommand: python fitnick_django/manage.py migrate && gunicorn --chdir fitnick_django fitnick_django.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
@@ -18,6 +19,18 @@ services:
         value: "0"
       - key: FITNICK_HEALTH_PROVIDER
         value: "google"
+      - key: FITNICK_AUTO_REFRESH_TOKENS
+        value: "1"
+      - key: FITNICK_REQUIRE_AUTH
+        value: "1"
+      - key: FITNICK_AUTH_EXEMPT_PATHS
+        value: "/healthz,/login,/logout,/admin/login"
+      - key: FITNICK_API_KEY
+        sync: false
+      - key: FITNICK_BASIC_AUTH_USER
+        sync: false
+      - key: FITNICK_BASIC_AUTH_PASS
+        sync: false
       - key: GOOGLE_HEALTH_ACCESS_TOKEN
         sync: false
       - key: GOOGLE_HEALTH_REFRESH_TOKEN
