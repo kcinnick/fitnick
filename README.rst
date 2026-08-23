@@ -44,9 +44,22 @@ Google Health token quickstart
 
    ``python google_health_token.py exchange-code --client-id "<client-id>" --client-secret "<client-secret>" --code "<code>" --print-env``
 
+   To persist directly into your local ``.env``:
+
+   ``python google_health_token.py exchange-code --client-id "<client-id>" --client-secret "<client-secret>" --code "<code>" --write-env-file .env``
+
 5. Apply the printed environment variables, then verify:
 
    ``python fitnick_django/manage.py runserver`` and open ``/health/smoke``.
+
+Programmatic refresh from `.env`
+-------
+
+Once ``.env`` contains ``GOOGLE_HEALTH_CLIENT_ID``, ``GOOGLE_HEALTH_CLIENT_SECRET``, and ``GOOGLE_HEALTH_REFRESH_TOKEN``, refresh with:
+
+``python google_health_token.py refresh-from-env --env-file .env``
+
+This updates ``GOOGLE_HEALTH_ACCESS_TOKEN`` (and ``HEALTH_ACCESS_TOKEN``) in-place.
 
 Local persistent `.env` setup
 -------
