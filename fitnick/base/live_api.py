@@ -161,6 +161,70 @@ def _google_daily_steps(activity_date):
     return int(rollups[0].get('steps', {}).get('countSum', 0))
 
 
+def _google_daily_steps_rollup(start_date, end_date):
+    request_payload = {
+        'range': {
+            'start': {
+                'date': {'year': start_date.year, 'month': start_date.month, 'day': start_date.day},
+                'time': {'hours': 0, 'minutes': 0, 'seconds': 0, 'nanos': 0},
+            },
+            'end': {
+                'date': {'year': end_date.year, 'month': end_date.month, 'day': end_date.day},
+                'time': {'hours': 0, 'minutes': 0, 'seconds': 0, 'nanos': 0},
+            },
+        },
+        'windowSizeDays': 1,
+        'dataSourceFamily': 'users/me/dataSourceFamilies/google-sources',
+    }
+    return _provider_post(
+        provider='google',
+        api_version='v4',
+        path='users/me/dataTypes/steps/dataPoints:dailyRollUp',
+        payload=request_payload,
+    )
+
+
+def get_recent_steps(days=7):
+    provider = get_health_provider()
+    if days < 1:
+        return []
+
+    if provider == 'google':
+        today = datetime.utcnow().date()
+        start_date = today - timedelta(days=days - 1)
+        end_date = today + timedelta(days=1)
+        payload = _google_daily_steps_rollup(start_date=start_date, end_date=end_date)
+        rows = []
+        for row in payload.get('rollupDataPoints', []):
+            civil_start = row.get('civilStartTime', {}).get('date', {})
+            if not civil_start:
+                continue
+            year = civil_start.get('year')
+            month = civil_start.get('month')
+            day = civil_start.get('day')
+            if year is None or month is None or day is None:
+                continue
+            rows.append({
+                'date': f'{year:04d}-{month:02d}-{day:02d}',
+                'steps': int(row.get('steps', {}).get('countSum', 0)),
+            })
+        rows.sort(key=lambda item: item['date'])
+        return rows
+
+    if provider == 'fitbit':
+        today = datetime.utcnow().date()
+        rows = []
+        for offset in range(days - 1, -1, -1):
+            target = (today - timedelta(days=offset)).strftime('%Y-%m-%d')
+            payload = _provider_get(provider='fitbit', api_version='1', path=f'user/-/activities/date/{target}.json')
+            rows.append({'date': target, 'steps': int(payload.get('summary', {}).get('steps', 0))})
+        return rows
+
+    raise HealthConfigurationError(
+        f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'
+    )
+
+
 def get_daily_activity_summary(activity_date):
     provider = get_health_provider()
     if provider == 'google':
@@ -170,6 +234,69 @@ def get_daily_activity_summary(activity_date):
     raise HealthConfigurationError(
         f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'
     )
+
+
+def get_latest_sleep_session(lookback_days=14):
+    provider = get_health_provider()
+    if provider != 'google':
+        return None
+
+    cutoff = (datetime.utcnow().date() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+    payload = _provider_get(
+        provider='google',
+        api_version='v4',
+        path='users/me/dataTypes/sleep/dataPoints:reconcile',
+        params={
+            'dataSourceFamily': 'users/me/dataSourceFamilies/google-sources',
+            'filter': f'sleep.interval.civil_end_time >= "{cutoff}"',
+        },
+    )
+
+    rows = payload.get('dataPoints', [])
+    if not rows:
+        return None
+
+    latest = max(
+        rows,
+        key=lambda item: item.get('sleep', {}).get('interval', {}).get('endTime', ''),
+    )
+    sleep = latest.get('sleep', {})
+    summary = sleep.get('summary', {})
+    interval = sleep.get('interval', {})
+    return {
+        'date': interval.get('endTime', '')[:10],
+        'minutes_asleep': int(summary.get('minutesAsleep', 0)),
+        'minutes_awake': int(summary.get('minutesAwake', 0)),
+    }
+
+
+def get_latest_body_fat_entry(lookback_days=120):
+    provider = get_health_provider()
+    if provider != 'google':
+        return None
+
+    cutoff = (datetime.utcnow() - timedelta(days=lookback_days)).strftime('%Y-%m-%dT00:00:00Z')
+    payload = _provider_get(
+        provider='google',
+        api_version='v4',
+        path='users/me/dataTypes/body-fat/dataPoints',
+        params={'filter': f'body_fat.sample_time.physical_time >= "{cutoff}"'},
+    )
+
+    rows = payload.get('dataPoints', [])
+    if not rows:
+        return None
+
+    latest = max(
+        rows,
+        key=lambda item: item.get('bodyFat', {}).get('sampleTime', {}).get('physicalTime', ''),
+    )
+    body_fat = latest.get('bodyFat', {})
+    sample_time = body_fat.get('sampleTime', {}).get('physicalTime', '')
+    return {
+        'date': sample_time[:10],
+        'percentage': body_fat.get('percentage'),
+    }
 
 
 def get_identity_summary():

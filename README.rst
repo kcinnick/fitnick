@@ -72,6 +72,16 @@ To persist credentials between terminal sessions:
 
 ``fitnick_django`` automatically loads ``.env`` on startup for local development.
 
+Local dashboard
+-------
+
+With tokens configured, run ``python fitnick_django/manage.py runserver`` and open ``http://127.0.0.1:8000/`` to view the local Fitbit-style dashboard shell:
+
+* Steps today progress
+* 7-day steps trend
+* Latest sleep snapshot
+* Latest body-fat snapshot
+
 * Free software: MIT license
 * Documentation: https://fitnick.readthedocs.io.
 

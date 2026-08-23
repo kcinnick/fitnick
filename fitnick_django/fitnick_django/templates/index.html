@@ -1,27 +1,98 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="main">
-    <center>
-        {% if today %}
-            <big><progress id="steps" value="{{ percent }}" max="100"> {{ percent }}% </progress></big>
-            <br><br>
+    <h2>Dashboard</h2>
+    <p><strong>Provider:</strong> {{ provider }} | <strong>Mode:</strong> {{ service_mode }}</p>
+    {% if errors %}
+        <div class="alert alert-warning">
+            {% for err in errors %}
+                <div>{{ err }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
 
-            {% if error %}
-                <font size="5">{{ error }}</font>
-            {% else %}
-                <font size="22">The number of steps you've taken so far today is <big>{{ steps }}</big>.</font>
-                <br><br>
-                <font size="11">You're {{ percent_str }}% of the way to {{ goal }}! Woohoo!</font>
-            {% endif %}
-        {% else %}
-            <font size="6">fitnick is scaffolded as a thin Render-hosted health integration service.</font>
-            <br><br>
-            <font size="4">Current mode: <big>{{ service_mode }}</big></font>
-            <br><br>
-            <font size="4">Provider: <big>{{ provider }}</big></font>
-            <br><br>
-            <font size="4">Use <a href="/health/smoke">/health/smoke</a> to verify live API access and <a href="/healthz">/healthz</a> for a deploy health check.</font>
-        {% endif %}
-    </center>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="panel panel-primary">
+                <div class="panel-heading">Steps Today</div>
+                <div class="panel-body">
+                    <h3>{{ steps }}</h3>
+                    <p>{{ percent_str }}% of {{ goal }}</p>
+                    <progress id="steps" value="{{ percent }}" max="100">{{ percent }}%</progress>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="panel panel-info">
+                <div class="panel-heading">Latest Sleep</div>
+                <div class="panel-body">
+                    {% if latest_sleep %}
+                        <p><strong>Date:</strong> {{ latest_sleep.date }}</p>
+                        <p><strong>Asleep:</strong> {{ latest_sleep.minutes_asleep }} min</p>
+                        <p><strong>Awake:</strong> {{ latest_sleep.minutes_awake }} min</p>
+                    {% else %}
+                        <p>No recent sleep data.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="panel panel-default">
+                <div class="panel-heading">Latest Body Fat</div>
+                <div class="panel-body">
+                    {% if latest_body_fat %}
+                        <p><strong>Date:</strong> {{ latest_body_fat.date }}</p>
+                        <p><strong>Body Fat %:</strong> {{ latest_body_fat.percentage }}</p>
+                    {% else %}
+                        <p>No recent body fat data.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="panel panel-success">
+                <div class="panel-heading">Last 7 Days Steps</div>
+                <div class="panel-body">
+                    {% if recent_steps %}
+                        <table class="table table-striped">
+                            <thead>
+                                <tr><th>Date</th><th>Steps</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for row in recent_steps %}
+                                    <tr><td>{{ row.date }}</td><td>{{ row.steps }}</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p>No step trend data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="panel panel-default">
+                <div class="panel-heading">Identity</div>
+                <div class="panel-body">
+                    {% if identity %}
+                        {% if identity.health_user_id %}
+                            <p><strong>Health User ID:</strong> {{ identity.health_user_id }}</p>
+                        {% endif %}
+                        {% if identity.legacy_user_id %}
+                            <p><strong>Legacy Fitbit ID:</strong> {{ identity.legacy_user_id }}</p>
+                        {% endif %}
+                        {% if identity.display_name %}
+                            <p><strong>Name:</strong> {{ identity.display_name }}</p>
+                        {% endif %}
+                    {% else %}
+                        <p>Identity not available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
