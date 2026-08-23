@@ -86,6 +86,16 @@ def print_env_exports(payload, client_id, client_secret):
     print('GOOGLE_HEALTH_CLIENT_SECRET=<client_secret>')
     print('FITNICK_HEALTH_PROVIDER=google')
     print('FITNICK_OFFLINE_MODE=0')
+    print('\nPaste this into your .env file:')
+    if access_token:
+        print(f'GOOGLE_HEALTH_ACCESS_TOKEN={access_token}')
+        print(f'HEALTH_ACCESS_TOKEN={access_token}')
+    if refresh_token:
+        print(f'GOOGLE_HEALTH_REFRESH_TOKEN={refresh_token}')
+    print(f'GOOGLE_HEALTH_CLIENT_ID={client_id}')
+    print(f'GOOGLE_HEALTH_CLIENT_SECRET={client_secret}')
+    print('FITNICK_HEALTH_PROVIDER=google')
+    print('FITNICK_OFFLINE_MODE=0')
 
 
 def build_parser():

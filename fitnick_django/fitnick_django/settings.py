@@ -6,6 +6,32 @@ import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPO_ROOT = os.path.dirname(BASE_DIR)
+
+
+def _load_env_file():
+    env_paths = (
+        os.path.join(REPO_ROOT, '.env'),
+        os.path.join(BASE_DIR, '.env'),
+    )
+    for env_path in env_paths:
+        if not os.path.exists(env_path):
+            continue
+        with open(env_path, 'r') as env_file:
+            for line in env_file:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                key, value = line.split('=', 1)
+                key = key.strip()
+                value = value.strip()
+                if value.startswith(('\'', '"')) and value.endswith(('\'', '"')) and len(value) >= 2:
+                    value = value[1:-1]
+                os.environ.setdefault(key, value)
+        break
+
+
+_load_env_file()
 
 
 # Quick-start development settings - unsuitable for production

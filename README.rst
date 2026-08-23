@@ -48,6 +48,17 @@ Google Health token quickstart
 
    ``python fitnick_django/manage.py runserver`` and open ``/health/smoke``.
 
+Local persistent `.env` setup
+-------
+
+To persist credentials between terminal sessions:
+
+1. Copy ``.env.example`` to ``.env`` at the repository root.
+2. Fill in your real ``GOOGLE_HEALTH_*`` values.
+3. Restart ``runserver``.
+
+``fitnick_django`` automatically loads ``.env`` on startup for local development.
+
 * Free software: MIT license
 * Documentation: https://fitnick.readthedocs.io.
 
