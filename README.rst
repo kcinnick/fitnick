@@ -31,6 +31,51 @@ Two endpoints are intended for early deployment validation:
 
 The data-model code under ``fitnick`` still supports historical sync work, but the deployment scaffold now favors live API reads for current-state views and a Google Health migration path.
 
+Render deployment checklist
+-------
+
+1. Push this repo to GitHub and create a new Blueprint service in Render using ``render.yaml``.
+2. In Render service environment variables, set:
+
+   * ``FITNICK_HEALTH_PROVIDER=google``
+   * ``FITNICK_OFFLINE_MODE=0``
+   * ``FITNICK_AUTO_REFRESH_TOKENS=1``
+   * ``FITNICK_REQUIRE_AUTH=1``
+   * ``FITNICK_AUTH_EXEMPT_PATHS=/healthz,/login,/logout,/admin/login``
+   * ``FITNICK_API_KEY=<long-random-key>`` and/or ``FITNICK_BASIC_AUTH_USER`` + ``FITNICK_BASIC_AUTH_PASS``
+   * ``GOOGLE_HEALTH_CLIENT_ID=<client-id>``
+   * ``GOOGLE_HEALTH_CLIENT_SECRET=<client-secret>``
+   * ``GOOGLE_HEALTH_REFRESH_TOKEN=<refresh-token>``
+   * ``GOOGLE_HEALTH_ACCESS_TOKEN=<access-token>`` (optional but recommended for first boot)
+
+3. Deploy and wait for startup migration + gunicorn boot.
+4. Validate health and auth:
+
+   * ``https://<your-render-host>/healthz`` should return ``{"status": "ok", ...}``
+   * ``https://<your-render-host>/health/smoke`` should return ``{"ok": true, ...}``
+   * ``https://<your-render-host>/login`` should show the sign-in page
+
+5. Create an app user for session login (run in Render Shell):
+
+   ``python fitnick_django/manage.py createsuperuser``
+
+Notes:
+
+* Access tokens rotate. ``fitnick`` now attempts automatic refresh when a live request receives a 401 and refresh credentials are present.
+* Keep ``GOOGLE_HEALTH_REFRESH_TOKEN`` current in Render env vars; if Google rotates it, update it in Render.
+* Protected endpoints require one of: Django login session, ``X-API-Key``, or HTTP Basic credentials when auth is enabled.
+
+Protected endpoint examples
+-------
+
+API key:
+
+``curl -H "X-API-Key: <your-key>" https://<your-render-host>/health/smoke``
+
+HTTP Basic auth:
+
+``curl -u "<user>:<pass>" https://<your-render-host>/``
+
 Google Health token quickstart
 -------
 

@@ -4,6 +4,10 @@ from datetime import datetime, timedelta
 import requests
 
 
+GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+FITBIT_TOKEN_URL = 'https://api.fitbit.com/oauth2/token'
+
+
 class HealthConfigurationError(RuntimeError):
     pass
 
@@ -34,12 +38,25 @@ def _get_fitbit_access_token():
 
 
 def _get_access_token(provider):
+    access_token = None
     if provider == 'google':
-        return _get_google_access_token()
-    if provider == 'fitbit':
-        return _get_fitbit_access_token()
+        access_token = _get_google_access_token()
+    elif provider == 'fitbit':
+        access_token = _get_fitbit_access_token()
+    else:
+        raise HealthConfigurationError(
+            f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'
+        )
+
+    if access_token:
+        return access_token
+
+    refreshed = _refresh_access_token(provider)
+    if refreshed:
+        return refreshed
+
     raise HealthConfigurationError(
-        f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'
+        f'Missing access token for provider "{provider}". Configure env vars before calling live endpoints.'
     )
 
 
@@ -48,7 +65,10 @@ def uses_live_health_api():
         return False
 
     provider = get_health_provider()
-    return bool(_get_access_token(provider))
+    try:
+        return bool(_get_access_token(provider))
+    except HealthConfigurationError:
+        return False
 
 
 def _parse_error_payload(response):
@@ -89,6 +109,16 @@ def _provider_get(provider, path, api_version, params=None):
         timeout=30,
     )
 
+    if response.status_code == 401 and can_refresh_health_token():
+        refreshed = _refresh_access_token(provider)
+        if refreshed:
+            response = requests.get(
+                base_url,
+                headers={'Authorization': f'Bearer {refreshed}', 'Accept': 'application/json'},
+                params=params,
+                timeout=30,
+            )
+
     if response.ok:
         return response.json()
 
@@ -119,6 +149,16 @@ def _provider_post(provider, path, api_version, payload):
         json=payload,
         timeout=30,
     )
+
+    if response.status_code == 401 and can_refresh_health_token():
+        refreshed = _refresh_access_token(provider)
+        if refreshed:
+            response = requests.post(
+                base_url,
+                headers={'Authorization': f'Bearer {refreshed}', 'Accept': 'application/json'},
+                json=payload,
+                timeout=30,
+            )
 
     if response.ok:
         return response.json()
@@ -332,10 +372,84 @@ def can_refresh_health_token():
     if provider == 'fitbit':
         return bool(
             os.getenv('FITBIT_REFRESH_TOKEN')
-            and os.getenv('FITBIT_CONSUMER_KEY')
             and os.getenv('FITBIT_AUTH_HEADER')
         )
     return False
+
+
+def _refresh_google_access_token():
+    refresh_token = os.getenv('GOOGLE_HEALTH_REFRESH_TOKEN')
+    client_id = os.getenv('GOOGLE_HEALTH_CLIENT_ID')
+    client_secret = os.getenv('GOOGLE_HEALTH_CLIENT_SECRET')
+    if not refresh_token or not client_id or not client_secret:
+        return None
+
+    response = requests.post(
+        GOOGLE_TOKEN_URL,
+        data={
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'refresh_token': refresh_token,
+            'grant_type': 'refresh_token',
+        },
+        timeout=30,
+    )
+    if not response.ok:
+        return None
+
+    payload = response.json()
+    access_token = payload.get('access_token')
+    if not access_token:
+        return None
+
+    os.environ['GOOGLE_HEALTH_ACCESS_TOKEN'] = access_token
+    os.environ['HEALTH_ACCESS_TOKEN'] = access_token
+    if payload.get('refresh_token'):
+        os.environ['GOOGLE_HEALTH_REFRESH_TOKEN'] = payload['refresh_token']
+    return access_token
+
+
+def _refresh_fitbit_access_token():
+    refresh_token = os.getenv('FITBIT_REFRESH_TOKEN')
+    auth_header = os.getenv('FITBIT_AUTH_HEADER')
+    if not refresh_token or not auth_header:
+        return None
+
+    response = requests.post(
+        FITBIT_TOKEN_URL,
+        data={
+            'grant_type': 'refresh_token',
+            'refresh_token': refresh_token,
+        },
+        headers={
+            'Authorization': f'Basic {auth_header}',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        timeout=30,
+    )
+    if not response.ok:
+        return None
+
+    payload = response.json()
+    access_token = payload.get('access_token')
+    if not access_token:
+        return None
+
+    os.environ['FITBIT_ACCESS_TOKEN'] = access_token
+    os.environ['FITBIT_ACCESS_KEY'] = access_token
+    if payload.get('refresh_token'):
+        os.environ['FITBIT_REFRESH_TOKEN'] = payload['refresh_token']
+    return access_token
+
+
+def _refresh_access_token(provider):
+    if os.getenv('FITNICK_AUTO_REFRESH_TOKENS', '1') != '1':
+        return None
+    if provider == 'google':
+        return _refresh_google_access_token()
+    if provider == 'fitbit':
+        return _refresh_fitbit_access_token()
+    return None
 
 
 def run_smoke_test():
