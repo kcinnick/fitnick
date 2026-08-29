@@ -73,3 +73,29 @@ def test_uses_live_health_api_returns_false_when_token_missing(monkeypatch):
 
     assert live_api.uses_live_health_api() is False
 
+
+def test_latest_sleep_session_preserves_wake_time(monkeypatch):
+    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
+    monkeypatch.setattr(
+        'fitnick.base.live_api._provider_get',
+        lambda **kwargs: {
+            'dataPoints': [
+                {
+                    'sleep': {
+                        'interval': {'endTime': '2026-08-29T07:15:00-04:00'},
+                        'summary': {'minutesAsleep': 420, 'minutesAwake': 20},
+                    }
+                }
+            ]
+        },
+    )
+
+    result = live_api.get_latest_sleep_session()
+
+    assert result == {
+        'date': '2026-08-29',
+        'wake_time': '2026-08-29T07:15:00-04:00',
+        'minutes_asleep': 420,
+        'minutes_awake': 20,
+    }
+
