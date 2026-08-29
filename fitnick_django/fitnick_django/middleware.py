@@ -44,7 +44,7 @@ def _parse_basic_auth(authorization_header):
 
 
 class AccessControlMiddleware:
-    """Protects all endpoints with API key and/or HTTP Basic auth."""
+    """Protect endpoints with session auth and optional header-based credentials."""
 
     def __init__(self, get_response):
         self.get_response = get_response

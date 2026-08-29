@@ -61,3 +61,15 @@ def test_provider_get_retries_once_after_401(monkeypatch):
     assert identity['health_user_id'] == 'abc123'
     assert request_tokens == ['Bearer stale-token', 'Bearer fresh-token']
 
+def test_uses_live_health_api_returns_false_when_token_missing(monkeypatch):
+    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
+    monkeypatch.setenv('FITNICK_OFFLINE_MODE', '0')
+    monkeypatch.setenv('FITNICK_AUTO_REFRESH_TOKENS', '0')
+    monkeypatch.delenv('GOOGLE_HEALTH_ACCESS_TOKEN', raising=False)
+    monkeypatch.delenv('HEALTH_ACCESS_TOKEN', raising=False)
+    monkeypatch.delenv('GOOGLE_HEALTH_REFRESH_TOKEN', raising=False)
+    monkeypatch.delenv('GOOGLE_HEALTH_CLIENT_ID', raising=False)
+    monkeypatch.delenv('GOOGLE_HEALTH_CLIENT_SECRET', raising=False)
+
+    assert live_api.uses_live_health_api() is False
+
