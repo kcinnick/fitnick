@@ -59,6 +59,17 @@ Render deployment checklist
 
    ``python fitnick_django/manage.py createsuperuser``
 
+   Optional bootstrap flow (env-driven):
+
+   * ``FITNICK_BOOTSTRAP_ADMIN_ENABLED=1``
+   * ``FITNICK_BOOTSTRAP_ADMIN_USERNAME=<admin-user>``
+   * ``FITNICK_BOOTSTRAP_ADMIN_PASSWORD=<strong-password>``
+   * ``FITNICK_BOOTSTRAP_ADMIN_EMAIL=<email>`` (optional)
+   * ``FITNICK_BOOTSTRAP_ADMIN_RESET_PASSWORD=0`` (set ``1`` only when intentionally rotating via deploy)
+
+   With these set, startup will auto-create the admin user after migrations.
+   After first successful login, set ``FITNICK_BOOTSTRAP_ADMIN_ENABLED=0``.
+
 Notes:
 
 * Access tokens rotate. ``fitnick`` now attempts automatic refresh when a live request receives a 401 and refresh credentials are present.

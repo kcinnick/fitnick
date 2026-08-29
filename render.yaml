@@ -5,7 +5,7 @@ services:
     plan: starter
     healthCheckPath: /healthz
     buildCommand: pip install -e . "Django>=4.2,<5.1" "gunicorn>=23,<24"
-    startCommand: python fitnick_django/manage.py migrate && gunicorn --chdir fitnick_django fitnick_django.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: python fitnick_django/manage.py migrate && python fitnick_django/manage.py shell -c "from fitnick_django.bootstrap_admin import bootstrap_admin_user; bootstrap_admin_user()" && gunicorn --chdir fitnick_django fitnick_django.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
@@ -25,6 +25,16 @@ services:
         value: "1"
       - key: FITNICK_AUTH_EXEMPT_PATHS
         value: "/healthz,/login,/logout,/admin/login"
+      - key: FITNICK_BOOTSTRAP_ADMIN_ENABLED
+        value: "0"
+      - key: FITNICK_BOOTSTRAP_ADMIN_RESET_PASSWORD
+        value: "0"
+      - key: FITNICK_BOOTSTRAP_ADMIN_USERNAME
+        sync: false
+      - key: FITNICK_BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: FITNICK_BOOTSTRAP_ADMIN_EMAIL
+        sync: false
       - key: FITNICK_API_KEY
         sync: false
       - key: FITNICK_BASIC_AUTH_USER
