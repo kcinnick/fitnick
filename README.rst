@@ -109,15 +109,17 @@ bCounter's authenticated ``POST /wake-time`` endpoint. Configure:
 * ``BCOUNTER_BASE_URL=https://<your-bcounter-host>``
 * ``BCOUNTER_API_KEY=<the same value as bCounter's BCOUNTER_API_KEY>``
 * ``BCOUNTER_TIMEZONE=America/New_York`` (or the timezone bCounter uses)
+* ``FITNICK_OVERNIGHT_SLEEP_MINUTES=180`` (minimum duration used to exclude naps)
 
 Run a sync manually:
 
 ``python sync_bcounter_wake_time.py``
 
-The command only pushes a wake time for the current date in
-``BCOUNTER_TIMEZONE``. It checks bCounter first and skips an exact duplicate;
-if bCounter has a different time, it sends the health-derived value and
-bCounter keeps the earliest entry for that day.
+FitNick selects the longest overnight session on the most recent overnight
+wake date, rather than a later short nap. The command only pushes a wake time
+for the current date in ``BCOUNTER_TIMEZONE``. It checks bCounter first and
+skips an exact duplicate; if bCounter has a different time, it sends the
+health-derived value and bCounter keeps the earliest entry for that day.
 
 For automation, create a Render Cron Job from this repository with the same
 ``GOOGLE_HEALTH_*`` and ``BCOUNTER_*`` secrets as the web service. Use

@@ -277,6 +277,66 @@ def get_daily_activity_summary(activity_date):
     )
 
 
+def _parse_iso_datetime(value):
+    if not value:
+        return None
+    normalized = value[:-1] + '+00:00' if value.endswith('Z') else value
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+
+
+def _sleep_duration_minutes(row):
+    sleep = row.get('sleep', {})
+    summary = sleep.get('summary', {})
+    try:
+        summary_minutes = int(summary.get('minutesAsleep') or 0) + int(summary.get('minutesAwake') or 0)
+    except (TypeError, ValueError):
+        summary_minutes = 0
+    if summary_minutes > 0:
+        return summary_minutes
+
+    interval = sleep.get('interval', {})
+    start_time = _parse_iso_datetime(interval.get('startTime', ''))
+    end_time = _parse_iso_datetime(interval.get('endTime', ''))
+    if start_time is None or end_time is None:
+        return 0
+    try:
+        return max(0, int((end_time - start_time).total_seconds() // 60))
+    except TypeError:
+        return 0
+
+
+def _select_latest_overnight_sleep(rows):
+    try:
+        minimum_minutes = max(1, int(os.getenv('FITNICK_OVERNIGHT_SLEEP_MINUTES', '180')))
+    except ValueError:
+        minimum_minutes = 180
+    candidates = []
+    for row in rows:
+        interval = row.get('sleep', {}).get('interval', {})
+        end_time = _parse_iso_datetime(interval.get('endTime', ''))
+        if end_time is None:
+            continue
+        start_time = _parse_iso_datetime(interval.get('startTime', ''))
+        duration_minutes = _sleep_duration_minutes(row)
+        crosses_midnight = start_time is not None and start_time.date() < end_time.date()
+        candidates.append((row, end_time, duration_minutes, crosses_midnight))
+
+    if not candidates:
+        return None
+
+    overnight = [
+        candidate for candidate in candidates
+        if candidate[3] or candidate[2] >= minimum_minutes
+    ]
+    selection_pool = overnight or candidates
+    latest_wake_date = max(candidate[1].date() for candidate in selection_pool)
+    same_date = [candidate for candidate in selection_pool if candidate[1].date() == latest_wake_date]
+    return max(same_date, key=lambda candidate: (candidate[2], candidate[1]))[0]
+
+
 def get_latest_sleep_session(lookback_days=14):
     provider = get_health_provider()
     if provider != 'google':
@@ -297,10 +357,9 @@ def get_latest_sleep_session(lookback_days=14):
     if not rows:
         return None
 
-    latest = max(
-        rows,
-        key=lambda item: item.get('sleep', {}).get('interval', {}).get('endTime', ''),
-    )
+    latest = _select_latest_overnight_sleep(rows)
+    if latest is None:
+        return None
     sleep = latest.get('sleep', {})
     summary = sleep.get('summary', {})
     interval = sleep.get('interval', {})
