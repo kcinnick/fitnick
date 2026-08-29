@@ -16,7 +16,7 @@ I created this for my own curiosity, but if you'd like to use it for live API re
 * Google Health: ``GOOGLE_HEALTH_ACCESS_TOKEN``
 * Fitbit (legacy): ``FITBIT_ACCESS_TOKEN`` or ``FITBIT_ACCESS_KEY``
 
-Runs on top of Google Cloud Platform (https://console.cloud.google.com/) and uses `postgresql` as a database.  `PySpark` is used for data analysis & large querying - otherwise, `SQLAlchemy` is sufficient and is used instead.
+Historically this project used Google Cloud Platform and PostgreSQL for bulk sync analysis. The current Render-first service defaults to Django + SQLite on a Render Disk for auth/session persistence, while PostgreSQL remains optional for historical analysis workloads.
 
 Current direction
 -------
@@ -77,11 +77,17 @@ Render deployment checklist
    With these set, startup will auto-create the admin user after migrations.
    After first successful login, set ``FITNICK_BOOTSTRAP_ADMIN_ENABLED=0`` when persistent DB storage is configured.
 
+   Manual bootstrap trigger (Render Shell):
+
+   ``python fitnick_django/manage.py shell -c "from fitnick_django.bootstrap_admin import bootstrap_admin_user; bootstrap_admin_user()"``
+
+
 Notes:
 
 * Access tokens rotate. ``fitnick`` now attempts automatic refresh when a live request receives a 401 and refresh credentials are present.
 * Keep ``GOOGLE_HEALTH_REFRESH_TOKEN`` current in Render env vars; if Google rotates it, update it in Render.
 * Protected endpoints require one of: Django login session, ``X-API-Key``, or HTTP Basic credentials when auth is enabled.
+* If neither ``FITNICK_API_KEY`` nor HTTP Basic creds are configured, unauthenticated requests to protected routes (such as ``/``) return ``503`` until you authenticate via ``/login``.
 
 Protected endpoint examples
 -------
