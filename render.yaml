@@ -27,6 +27,8 @@ services:
         value: "google"
       - key: FITNICK_AUTO_REFRESH_TOKENS
         value: "1"
+      - key: FITNICK_OVERNIGHT_SLEEP_MINUTES
+        value: "180"
       - key: FITNICK_REQUIRE_AUTH
         value: "1"
       - key: FITNICK_AUTH_EXEMPT_PATHS

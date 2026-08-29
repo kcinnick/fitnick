@@ -99,3 +99,53 @@ def test_latest_sleep_session_preserves_wake_time(monkeypatch):
         'minutes_awake': 20,
     }
 
+
+def _sleep_row(start_time, end_time, minutes_asleep, minutes_awake=0):
+    return {
+        'sleep': {
+            'interval': {'startTime': start_time, 'endTime': end_time},
+            'summary': {'minutesAsleep': minutes_asleep, 'minutesAwake': minutes_awake},
+        }
+    }
+
+
+def test_sleep_selection_keeps_longest_overnight_instead_of_later_nap(monkeypatch):
+    monkeypatch.setenv('FITNICK_OVERNIGHT_SLEEP_MINUTES', '180')
+    overnight = _sleep_row(
+        '2026-08-29T03:30:00-04:00',
+        '2026-08-29T13:57:00-04:00',
+        590,
+        37,
+    )
+    later_nap = _sleep_row(
+        '2026-08-29T16:00:00-04:00',
+        '2026-08-29T17:00:00-04:00',
+        60,
+    )
+
+    assert live_api._select_latest_overnight_sleep([overnight, later_nap]) is overnight
+
+
+def test_sleep_selection_prefers_latest_overnight_date_over_longer_old_session(monkeypatch):
+    monkeypatch.setenv('FITNICK_OVERNIGHT_SLEEP_MINUTES', '180')
+    older_longer = _sleep_row(
+        '2026-08-27T22:00:00-04:00',
+        '2026-08-28T08:00:00-04:00',
+        580,
+    )
+    latest = _sleep_row(
+        '2026-08-28T23:30:00-04:00',
+        '2026-08-29T07:00:00-04:00',
+        430,
+    )
+
+    assert live_api._select_latest_overnight_sleep([older_longer, latest]) is latest
+
+
+def test_sleep_selection_falls_back_to_longest_latest_short_session(monkeypatch):
+    monkeypatch.setenv('FITNICK_OVERNIGHT_SLEEP_MINUTES', '180')
+    shorter = _sleep_row('2026-08-29T11:00:00-04:00', '2026-08-29T11:20:00-04:00', 20)
+    longer = _sleep_row('2026-08-29T12:00:00-04:00', '2026-08-29T13:00:00-04:00', 60)
+
+    assert live_api._select_latest_overnight_sleep([shorter, longer]) is longer
+
