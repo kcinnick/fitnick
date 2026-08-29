@@ -304,8 +304,10 @@ def get_latest_sleep_session(lookback_days=14):
     sleep = latest.get('sleep', {})
     summary = sleep.get('summary', {})
     interval = sleep.get('interval', {})
+    wake_time = interval.get('endTime', '')
     return {
-        'date': interval.get('endTime', '')[:10],
+        'date': wake_time[:10],
+        'wake_time': wake_time,
         'minutes_asleep': int(summary.get('minutesAsleep', 0)),
         'minutes_awake': int(summary.get('minutesAwake', 0)),
     }

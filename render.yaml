@@ -55,6 +55,12 @@ services:
         sync: false
       - key: GOOGLE_HEALTH_CLIENT_SECRET
         sync: false
+      - key: BCOUNTER_BASE_URL
+        sync: false
+      - key: BCOUNTER_API_KEY
+        sync: false
+      - key: BCOUNTER_TIMEZONE
+        value: "America/New_York"
       - key: FITBIT_ACCESS_TOKEN
         sync: false
       - key: FITBIT_ACCESS_KEY

@@ -100,6 +100,31 @@ HTTP Basic auth:
 
 ``curl -u "<user>:<pass>" https://<your-render-host>/``
 
+bCounter wake-time sync
+-------
+
+FitNick can send the end of today's latest Google Health sleep session to
+bCounter's authenticated ``POST /wake-time`` endpoint. Configure:
+
+* ``BCOUNTER_BASE_URL=https://<your-bcounter-host>``
+* ``BCOUNTER_API_KEY=<the same value as bCounter's BCOUNTER_API_KEY>``
+* ``BCOUNTER_TIMEZONE=America/New_York`` (or the timezone bCounter uses)
+
+Run a sync manually:
+
+``python sync_bcounter_wake_time.py``
+
+The command only pushes a wake time for the current date in
+``BCOUNTER_TIMEZONE``. It checks bCounter first and skips an exact duplicate;
+if bCounter has a different time, it sends the health-derived value and
+bCounter keeps the earliest entry for that day.
+
+For automation, create a Render Cron Job from this repository with the same
+``GOOGLE_HEALTH_*`` and ``BCOUNTER_*`` secrets as the web service. Use
+``python sync_bcounter_wake_time.py`` as the command. An hourly schedule is
+safe because duplicate values are skipped; restrict the schedule to likely
+waking hours if desired.
+
 Google Health token quickstart
 -------
 
