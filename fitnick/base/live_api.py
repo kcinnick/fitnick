@@ -51,6 +51,7 @@ def _get_access_token(provider):
     if access_token:
         return access_token
 
+    # If access token is missing but refresh credentials exist, attempt one refresh.
     refreshed = _refresh_access_token(provider)
     if refreshed:
         return refreshed

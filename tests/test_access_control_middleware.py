@@ -78,3 +78,4 @@ def test_default_exempt_login_path(monkeypatch):
     middleware = AccessControlMiddleware(lambda request: 'ok')
     assert middleware(DummyRequest(path='/login')) == 'ok'
 
+
