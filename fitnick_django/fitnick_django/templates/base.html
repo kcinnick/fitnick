@@ -47,6 +47,11 @@
 		<a href="/steps/today">Steps Today</a>
 		<a href="/health/smoke">Health Smoke</a>
 		<a href="/healthz">Health</a>
+		{% if user.is_authenticated %}
+		<a href="/logout">Logout</a>
+		{% else %}
+		<a href="/login">Login</a>
+		{% endif %}
 	</div>
         <div class="content container">
             <div class="row">
