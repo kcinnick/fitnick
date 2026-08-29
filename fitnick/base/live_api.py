@@ -66,7 +66,10 @@ def uses_live_health_api():
         return False
 
     provider = get_health_provider()
-    return bool(_get_access_token(provider))
+    try:
+        return bool(_get_access_token(provider))
+    except HealthConfigurationError:
+        return False
 
 
 def _parse_error_payload(response):
@@ -370,7 +373,6 @@ def can_refresh_health_token():
     if provider == 'fitbit':
         return bool(
             os.getenv('FITBIT_REFRESH_TOKEN')
-            and os.getenv('FITBIT_CONSUMER_KEY')
             and os.getenv('FITBIT_AUTH_HEADER')
         )
     return False
