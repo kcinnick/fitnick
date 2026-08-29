@@ -49,6 +49,13 @@ Render deployment checklist
    * ``GOOGLE_HEALTH_ACCESS_TOKEN=<access-token>`` (optional but recommended for first boot)
 
 3. Deploy and wait for startup migration + gunicorn boot.
+
+   Persistent auth storage on Render:
+
+   * Attach a Render Disk (the Blueprint now defines ``/var/data``).
+   * Keep ``FITNICK_DJANGO_DB_PATH=/var/data/fitnick/db.sqlite3`` so SQLite survives restarts/redeploys.
+   * If this value points at ephemeral filesystem, users/sessions can disappear after deploys.
+
 4. Validate health and auth:
 
    * ``https://<your-render-host>/healthz`` should return ``{"status": "ok", ...}``
@@ -68,7 +75,7 @@ Render deployment checklist
    * ``FITNICK_BOOTSTRAP_ADMIN_RESET_PASSWORD=0`` (set ``1`` only when intentionally rotating via deploy)
 
    With these set, startup will auto-create the admin user after migrations.
-   After first successful login, set ``FITNICK_BOOTSTRAP_ADMIN_ENABLED=0``.
+   After first successful login, set ``FITNICK_BOOTSTRAP_ADMIN_ENABLED=0`` when persistent DB storage is configured.
 
 Notes:
 
