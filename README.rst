@@ -23,9 +23,10 @@ Current direction
 
 The repo now includes a Render-first scaffold for ``fitnick_django`` so the web surface can act as a thin health integration service instead of assuming full PostgreSQL replication of API data.
 
-Two endpoints are intended for early deployment validation:
+Endpoints intended for deployment validation:
 
-* ``/healthz`` confirms the Django service is up.
+* ``/health`` and ``/healthz`` confirm the Django service is up.
+* ``/openapi.json`` exposes a minimal API contract for integration discovery.
 * ``/health/smoke`` attempts a live API identity request through the currently selected provider and reports whether credentials work.
 * ``/fitbit/smoke`` remains as a compatibility alias to ``/health/smoke``.
 
@@ -41,8 +42,8 @@ Render deployment checklist
    * ``FITNICK_OFFLINE_MODE=0``
    * ``FITNICK_AUTO_REFRESH_TOKENS=1``
    * ``FITNICK_REQUIRE_AUTH=1``
-   * ``FITNICK_AUTH_EXEMPT_PATHS=/healthz,/login,/logout,/admin/login``
-   * ``FITNICK_API_KEY=<long-random-key>`` and/or ``FITNICK_BASIC_AUTH_USER`` + ``FITNICK_BASIC_AUTH_PASS``
+   * ``FITNICK_AUTH_EXEMPT_PATHS=/health,/healthz,/openapi.json,/login,/logout,/admin/login``
+   * ``FITNICK_API_KEY=<long-random-key>`` (preferred for service-to-service callers) and/or ``FITNICK_BASIC_AUTH_USER`` + ``FITNICK_BASIC_AUTH_PASS``
    * ``GOOGLE_HEALTH_CLIENT_ID=<client-id>``
    * ``GOOGLE_HEALTH_CLIENT_SECRET=<client-secret>``
    * ``GOOGLE_HEALTH_REFRESH_TOKEN=<refresh-token>``
@@ -58,7 +59,9 @@ Render deployment checklist
 
 4. Validate health and auth:
 
-   * ``https://<your-render-host>/healthz`` should return ``{"status": "ok", ...}``
+   * ``https://<your-render-host>/health`` should return ``{"ok": true, ...}``
+   * ``https://<your-render-host>/healthz`` should return ``{"ok": true, ...}``
+   * ``https://<your-render-host>/openapi.json`` should return an OpenAPI document
    * ``https://<your-render-host>/health/smoke`` should return ``{"ok": true, ...}``
    * ``https://<your-render-host>/login`` should show the sign-in page
 
@@ -87,7 +90,26 @@ Notes:
 * Access tokens rotate. ``fitnick`` now attempts automatic refresh when a live request receives a 401 and refresh credentials are present.
 * Keep ``GOOGLE_HEALTH_REFRESH_TOKEN`` current in Render env vars; if Google rotates it, update it in Render.
 * Protected endpoints require one of: Django login session, ``X-API-Key``, or HTTP Basic credentials when auth is enabled.
-* If neither ``FITNICK_API_KEY`` nor HTTP Basic creds are configured, unauthenticated requests to protected routes (such as ``/``) return ``503`` until you authenticate via ``/login``.
+* If no API key/basic credential is configured, protected endpoints still reject unauthenticated callers with ``401`` (instead of ``503`` config errors). Keep ``FITNICK_API_KEY`` configured in production for service callers.
+
+Daily heart-rate endpoint
+-------
+
+``GET /api/heart-rate/daily?from=YYYY-MM-DD&to=YYYY-MM-DD``
+
+* Caller auth: ``X-API-Key: <FITNICK_API_KEY>`` when auth is enabled.
+* Date range is inclusive and capped at 90 days.
+* Response envelope is ``{"days": [...]}``, sorted by ``on_date`` ascending.
+* Each row includes:
+
+  * ``on_date`` (required)
+  * ``resting_bpm`` (Fitbit daily resting heart rate, integer or null)
+  * ``avg_bpm``/``min_bpm``/``max_bpm`` (derived from Fitbit intraday minute dataset when available)
+  * ``hrv_ms`` (Fitbit ``dailyRmssd`` in ms when available)
+
+Rows with no available Fitbit heart metrics are omitted.
+
+Fitbit note: this endpoint currently requires ``FITNICK_HEALTH_PROVIDER=fitbit`` and valid Fitbit scopes for heart-rate/HRV access.
 
 Protected endpoint examples
 -------

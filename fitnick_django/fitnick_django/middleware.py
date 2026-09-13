@@ -17,6 +17,16 @@ def _parse_exempt_paths(value):
     return [item.strip() for item in value.split(',') if item.strip()]
 
 
+DEFAULT_AUTH_EXEMPT_PATHS = (
+    '/health',
+    '/healthz',
+    '/openapi.json',
+    '/login',
+    '/logout',
+    '/admin/login',
+)
+
+
 def _safe_compare(left, right):
     if left is None or right is None:
         return False
@@ -58,9 +68,8 @@ class AccessControlMiddleware:
             return self.get_response(request)
 
         path = request.path or ''
-        exempt_paths = _parse_exempt_paths(
-            os.getenv('FITNICK_AUTH_EXEMPT_PATHS', '/healthz,/login,/logout,/admin/login')
-        )
+        exempt_paths = set(DEFAULT_AUTH_EXEMPT_PATHS)
+        exempt_paths.update(_parse_exempt_paths(os.getenv('FITNICK_AUTH_EXEMPT_PATHS', '')))
         if any(path.startswith(prefix) for prefix in exempt_paths):
             return self.get_response(request)
 
@@ -68,12 +77,6 @@ class AccessControlMiddleware:
         basic_user = os.getenv('FITNICK_BASIC_AUTH_USER')
         basic_pass = os.getenv('FITNICK_BASIC_AUTH_PASS')
 
-        methods_configured = bool(api_key) or bool(basic_user and basic_pass)
-        if not methods_configured:
-            return JsonResponse(
-                {'ok': False, 'error': 'Authentication is enabled but no auth method is configured.'},
-                status=503,
-            )
 
         request_api_key = request.headers.get('X-API-Key')
         if api_key and _safe_compare(request_api_key, api_key):

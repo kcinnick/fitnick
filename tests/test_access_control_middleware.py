@@ -79,3 +79,39 @@ def test_default_exempt_login_path(monkeypatch):
     assert middleware(DummyRequest(path='/login')) == 'ok'
 
 
+def test_default_exempt_health_and_openapi_paths(monkeypatch):
+    monkeypatch.setenv('FITNICK_REQUIRE_AUTH', '1')
+    monkeypatch.delenv('FITNICK_AUTH_EXEMPT_PATHS', raising=False)
+    monkeypatch.delenv('FITNICK_API_KEY', raising=False)
+    monkeypatch.delenv('FITNICK_BASIC_AUTH_USER', raising=False)
+    monkeypatch.delenv('FITNICK_BASIC_AUTH_PASS', raising=False)
+
+    middleware = AccessControlMiddleware(lambda request: 'ok')
+    assert middleware(DummyRequest(path='/health')) == 'ok'
+    assert middleware(DummyRequest(path='/openapi.json')) == 'ok'
+
+
+def test_missing_auth_methods_returns_401_not_503(monkeypatch):
+    monkeypatch.setenv('FITNICK_REQUIRE_AUTH', '1')
+    monkeypatch.delenv('FITNICK_AUTH_EXEMPT_PATHS', raising=False)
+    monkeypatch.delenv('FITNICK_API_KEY', raising=False)
+    monkeypatch.delenv('FITNICK_BASIC_AUTH_USER', raising=False)
+    monkeypatch.delenv('FITNICK_BASIC_AUTH_PASS', raising=False)
+
+    middleware = AccessControlMiddleware(lambda request: 'ok')
+    response = middleware(DummyRequest(path='/api/heart-rate/daily', headers={}))
+    assert response.status_code == 401
+
+
+def test_health_and_openapi_stay_exempt_with_legacy_env_value(monkeypatch):
+    monkeypatch.setenv('FITNICK_REQUIRE_AUTH', '1')
+    monkeypatch.setenv('FITNICK_AUTH_EXEMPT_PATHS', '/healthz,/login,/logout,/admin/login')
+    monkeypatch.delenv('FITNICK_API_KEY', raising=False)
+    monkeypatch.delenv('FITNICK_BASIC_AUTH_USER', raising=False)
+    monkeypatch.delenv('FITNICK_BASIC_AUTH_PASS', raising=False)
+
+    middleware = AccessControlMiddleware(lambda request: 'ok')
+    assert middleware(DummyRequest(path='/health')) == 'ok'
+    assert middleware(DummyRequest(path='/openapi.json')) == 'ok'
+
+

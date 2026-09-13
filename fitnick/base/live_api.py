@@ -6,6 +6,7 @@ import requests
 
 GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 FITBIT_TOKEN_URL = 'https://api.fitbit.com/oauth2/token'
+MAX_DAILY_HEART_RANGE_DAYS = 90
 
 
 class HealthConfigurationError(RuntimeError):
@@ -264,6 +265,124 @@ def get_recent_steps(days=7):
     raise HealthConfigurationError(
         f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'
     )
+
+
+def _date_range_inclusive(start_date, end_date):
+    current = start_date
+    while current <= end_date:
+        yield current
+        current += timedelta(days=1)
+
+
+def _coerce_int(value):
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coerce_float(value):
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_daily_rmssd(hrv_payload, target_date_str):
+    rows = hrv_payload.get('hrv', []) if isinstance(hrv_payload, dict) else []
+    for row in rows:
+        if row.get('dateTime') != target_date_str:
+            continue
+        value = row.get('value', {})
+        if not isinstance(value, dict):
+            return None
+        return _coerce_float(value.get('dailyRmssd'))
+    return None
+
+
+def get_daily_heart_rate_metrics(start_date, end_date):
+    provider = get_health_provider()
+    if provider != 'fitbit':
+        raise HealthConfigurationError(
+            'Daily heart-rate endpoint currently requires FITNICK_HEALTH_PROVIDER=fitbit.'
+        )
+
+    resting_payload = _provider_get(
+        provider='fitbit',
+        api_version='1',
+        path=f'user/-/activities/heart/date/{start_date}/{end_date}.json',
+    )
+    resting_rows = resting_payload.get('activities-heart', []) if isinstance(resting_payload, dict) else []
+    resting_by_date = {}
+    for row in resting_rows:
+        on_date = row.get('dateTime')
+        if not on_date:
+            continue
+        resting = row.get('value', {}).get('restingHeartRate') if isinstance(row.get('value', {}), dict) else None
+        resting_by_date[on_date] = _coerce_int(resting)
+
+    results = []
+    for day in _date_range_inclusive(start_date, end_date):
+        day_str = day.strftime('%Y-%m-%d')
+        intraday = None
+        hrv_payload = None
+
+        try:
+            intraday = _provider_get(
+                provider='fitbit',
+                api_version='1',
+                path=f'user/-/activities/heart/date/{day_str}/1d/1min.json',
+            )
+        except HealthAPIError as exc:
+            if exc.status_code not in {403, 404}:
+                raise
+
+        try:
+            hrv_payload = _provider_get(
+                provider='fitbit',
+                api_version='1',
+                path=f'user/-/hrv/date/{day_str}.json',
+            )
+        except HealthAPIError as exc:
+            if exc.status_code not in {403, 404}:
+                raise
+
+        dataset = []
+        if isinstance(intraday, dict):
+            dataset = intraday.get('activities-heart-intraday', {}).get('dataset', [])
+
+        values = []
+        for item in dataset:
+            bpm = _coerce_int(item.get('value')) if isinstance(item, dict) else None
+            if bpm is not None:
+                values.append(bpm)
+
+        avg_bpm = int(round(sum(values) / len(values))) if values else None
+        min_bpm = min(values) if values else None
+        max_bpm = max(values) if values else None
+        hrv_ms = _extract_daily_rmssd(hrv_payload, day_str) if hrv_payload else None
+        resting_bpm = resting_by_date.get(day_str)
+
+        if all(metric is None for metric in (resting_bpm, avg_bpm, min_bpm, max_bpm, hrv_ms)):
+            continue
+
+        results.append(
+            {
+                'on_date': day_str,
+                'resting_bpm': resting_bpm,
+                'avg_bpm': avg_bpm,
+                'min_bpm': min_bpm,
+                'max_bpm': max_bpm,
+                'hrv_ms': hrv_ms,
+            }
+        )
+
+    results.sort(key=lambda item: item['on_date'])
+    return results
 
 
 def get_daily_activity_summary(activity_date):

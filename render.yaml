@@ -32,7 +32,7 @@ services:
       - key: FITNICK_REQUIRE_AUTH
         value: "1"
       - key: FITNICK_AUTH_EXEMPT_PATHS
-        value: "/healthz,/login,/logout,/admin/login"
+        value: "/health,/healthz,/openapi.json,/login,/logout,/admin/login"
       - key: FITNICK_BOOTSTRAP_ADMIN_ENABLED
         value: "0"
       - key: FITNICK_BOOTSTRAP_ADMIN_RESET_PASSWORD
