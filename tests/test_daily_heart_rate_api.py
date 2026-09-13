@@ -236,3 +236,79 @@ def test_daily_view_translates_upstream_failure(monkeypatch):
     assert payload['ok'] is False
     assert 'temporary error' in payload['error']
 
+
+def test_live_api_maps_google_daily_resting_and_hrv(monkeypatch):
+    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
+
+    def fake_provider_get(provider, api_version, path, params=None):
+        assert provider == 'google'
+        if path == 'users/me/dataTypes/daily-resting-heart-rate/dataPoints':
+            return {
+                'dataPoints': [
+                    {
+                        'dailyRestingHeartRate': {
+                            'date': {'year': 2026, 'month': 9, 'day': 11},
+                            'beatsPerMinute': '62',
+                        }
+                    }
+                ]
+            }
+        if path == 'users/me/dataTypes/daily-heart-rate-variability/dataPoints':
+            return {
+                'dataPoints': [
+                    {
+                        'dailyHeartRateVariability': {
+                            'date': {'year': 2026, 'month': 9, 'day': 11},
+                            'averageHeartRateVariabilityMilliseconds': 41.25,
+                        }
+                    }
+                ]
+            }
+        raise AssertionError(f'Unexpected path: {path}')
+
+    monkeypatch.setattr('fitnick.base.live_api._provider_get', fake_provider_get)
+
+    rows = live_api.get_daily_heart_rate_metrics(
+        start_date=live_api.datetime(2026, 9, 11).date(),
+        end_date=live_api.datetime(2026, 9, 11).date(),
+    )
+    assert rows == [
+        {
+            'on_date': '2026-09-11',
+            'resting_bpm': 62,
+            'avg_bpm': None,
+            'min_bpm': None,
+            'max_bpm': None,
+            'hrv_ms': 41.25,
+        }
+    ]
+
+
+def test_live_api_google_daily_filter_fallback(monkeypatch):
+    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
+    calls = {'resting': 0, 'hrv': 0}
+
+    def fake_provider_get(provider, api_version, path, params=None):
+        assert provider == 'google'
+        if path == 'users/me/dataTypes/daily-resting-heart-rate/dataPoints':
+            calls['resting'] += 1
+            if params:
+                raise HealthAPIError(status_code=400, provider='google', error_type='invalid_argument', message='bad filter')
+            return {'dataPoints': []}
+        if path == 'users/me/dataTypes/daily-heart-rate-variability/dataPoints':
+            calls['hrv'] += 1
+            if params:
+                raise HealthAPIError(status_code=400, provider='google', error_type='invalid_argument', message='bad filter')
+            return {'dataPoints': []}
+        raise AssertionError(f'Unexpected path: {path}')
+
+    monkeypatch.setattr('fitnick.base.live_api._provider_get', fake_provider_get)
+    rows = live_api.get_daily_heart_rate_metrics(
+        start_date=live_api.datetime(2026, 9, 11).date(),
+        end_date=live_api.datetime(2026, 9, 11).date(),
+    )
+
+    assert rows == []
+    assert calls == {'resting': 2, 'hrv': 2}
+
+

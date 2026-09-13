@@ -304,13 +304,117 @@ def _extract_daily_rmssd(hrv_payload, target_date_str):
     return None
 
 
-def get_daily_heart_rate_metrics(start_date, end_date):
-    provider = get_health_provider()
-    if provider != 'fitbit':
-        raise HealthConfigurationError(
-            'Daily heart-rate endpoint currently requires FITNICK_HEALTH_PROVIDER=fitbit.'
-        )
+def _coerce_iso_date(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except ValueError:
+        return None
 
+
+def _google_date_to_iso(date_payload):
+    if not isinstance(date_payload, dict):
+        return None
+    year = date_payload.get('year')
+    month = date_payload.get('month')
+    day = date_payload.get('day')
+    if year is None or month is None or day is None:
+        return None
+    try:
+        return f'{int(year):04d}-{int(month):02d}-{int(day):02d}'
+    except (TypeError, ValueError):
+        return None
+
+
+def _google_daily_data_points(data_type, filter_param, start_date, end_date):
+    start_str = start_date.strftime('%Y-%m-%d')
+    end_str = end_date.strftime('%Y-%m-%d')
+    date_filter = f'{filter_param}.date >= "{start_str}" and {filter_param}.date <= "{end_str}"'
+    params = {
+        'filter': date_filter,
+    }
+    try:
+        payload = _provider_get(
+            provider='google',
+            api_version='v4',
+            path=f'users/me/dataTypes/{data_type}/dataPoints',
+            params=params,
+        )
+    except HealthAPIError as exc:
+        if exc.status_code != 400:
+            raise
+        payload = _provider_get(
+            provider='google',
+            api_version='v4',
+            path=f'users/me/dataTypes/{data_type}/dataPoints',
+        )
+    return payload.get('dataPoints', []) if isinstance(payload, dict) else []
+
+
+def _google_daily_heart_rate_metrics(start_date, end_date):
+    rows_by_date = {}
+
+    resting_rows = _google_daily_data_points(
+        data_type='daily-resting-heart-rate',
+        filter_param='daily_resting_heart_rate',
+        start_date=start_date,
+        end_date=end_date,
+    )
+    for row in resting_rows:
+        daily_resting = row.get('dailyRestingHeartRate', {}) if isinstance(row, dict) else {}
+        on_date = _google_date_to_iso(daily_resting.get('date'))
+        if not on_date:
+            continue
+        parsed = _coerce_iso_date(on_date)
+        if parsed is None or parsed < start_date or parsed > end_date:
+            continue
+        entry = rows_by_date.setdefault(
+            on_date,
+            {
+                'on_date': on_date,
+                'resting_bpm': None,
+                'avg_bpm': None,
+                'min_bpm': None,
+                'max_bpm': None,
+                'hrv_ms': None,
+            },
+        )
+        entry['resting_bpm'] = _coerce_int(daily_resting.get('beatsPerMinute'))
+
+    hrv_rows = _google_daily_data_points(
+        data_type='daily-heart-rate-variability',
+        filter_param='daily_heart_rate_variability',
+        start_date=start_date,
+        end_date=end_date,
+    )
+    for row in hrv_rows:
+        daily_hrv = row.get('dailyHeartRateVariability', {}) if isinstance(row, dict) else {}
+        on_date = _google_date_to_iso(daily_hrv.get('date'))
+        if not on_date:
+            continue
+        parsed = _coerce_iso_date(on_date)
+        if parsed is None or parsed < start_date or parsed > end_date:
+            continue
+        entry = rows_by_date.setdefault(
+            on_date,
+            {
+                'on_date': on_date,
+                'resting_bpm': None,
+                'avg_bpm': None,
+                'min_bpm': None,
+                'max_bpm': None,
+                'hrv_ms': None,
+            },
+        )
+        entry['hrv_ms'] = _coerce_float(daily_hrv.get('averageHeartRateVariabilityMilliseconds'))
+
+    rows = list(rows_by_date.values())
+    rows.sort(key=lambda item: item['on_date'])
+    return rows
+
+
+def _fitbit_daily_heart_rate_metrics(start_date, end_date):
     resting_payload = _provider_get(
         provider='fitbit',
         api_version='1',
@@ -383,6 +487,17 @@ def get_daily_heart_rate_metrics(start_date, end_date):
 
     results.sort(key=lambda item: item['on_date'])
     return results
+
+
+def get_daily_heart_rate_metrics(start_date, end_date):
+    provider = get_health_provider()
+    if provider == 'fitbit':
+        return _fitbit_daily_heart_rate_metrics(start_date=start_date, end_date=end_date)
+    if provider == 'google':
+        return _google_daily_heart_rate_metrics(start_date=start_date, end_date=end_date)
+    raise HealthConfigurationError(
+        f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'
+    )
 
 
 def get_daily_activity_summary(activity_date):
