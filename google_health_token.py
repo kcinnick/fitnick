@@ -13,6 +13,7 @@ DEFAULT_REDIRECT_URI = 'https://www.google.com'
 DEFAULT_SCOPES = [
     'https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly',
     'https://www.googleapis.com/auth/googlehealth.sleep.readonly',
+    'https://www.googleapis.com/auth/googlehealth.profile.read',  # For users/me/identity endpoint
 ]
 
 

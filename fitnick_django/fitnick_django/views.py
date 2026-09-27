@@ -40,7 +40,14 @@ def index(request):
 
         try:
             identity = get_identity_summary()
-        except (HealthAPIError, HealthConfigurationError) as exc:
+        except HealthAPIError as exc:
+            # 403 permission_denied for identity usually means missing profile scope
+            # Log but don't display error if it's just a scope issue
+            if exc.status_code == 403 and 'permission' in exc.error_type.lower():
+                pass  # Silently skip identity if scope is missing
+            else:
+                errors.append(str(exc))
+        except HealthConfigurationError as exc:
             errors.append(str(exc))
 
         try:
