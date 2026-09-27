@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 import fitnick.base.live_api as live_api
 from fitnick.base.live_api import HealthAPIError
 from fitnick_django.fitnick_django.middleware import AccessControlMiddleware
@@ -23,6 +25,7 @@ def _decode_json(response):
     return json.loads(response.content.decode('utf-8'))
 
 
+@pytest.mark.django
 def test_daily_endpoint_requires_auth_when_enabled(monkeypatch):
     monkeypatch.setenv('FITNICK_REQUIRE_AUTH', '1')
     monkeypatch.setenv('FITNICK_API_KEY', 'secret-key')
@@ -41,6 +44,7 @@ def test_daily_endpoint_requires_auth_when_enabled(monkeypatch):
     assert response.status_code == 401
 
 
+@pytest.mark.django
 def test_daily_endpoint_rejects_invalid_api_key(monkeypatch):
     monkeypatch.setenv('FITNICK_REQUIRE_AUTH', '1')
     monkeypatch.setenv('FITNICK_API_KEY', 'secret-key')
@@ -59,6 +63,7 @@ def test_daily_endpoint_rejects_invalid_api_key(monkeypatch):
     assert response.status_code == 401
 
 
+@pytest.mark.django
 def test_daily_endpoint_allows_valid_api_key(monkeypatch):
     monkeypatch.setenv('FITNICK_REQUIRE_AUTH', '1')
     monkeypatch.setenv('FITNICK_API_KEY', 'secret-key')
@@ -90,6 +95,7 @@ def test_daily_endpoint_allows_valid_api_key(monkeypatch):
     assert response.status_code == 200
 
 
+@pytest.mark.django
 def test_daily_range_validation_one_day(monkeypatch):
     monkeypatch.setattr(
         'fitnick_django.fitnick_django.views.get_daily_heart_rate_metrics',
@@ -111,6 +117,7 @@ def test_daily_range_validation_one_day(monkeypatch):
     assert payload['days'][0]['on_date'] == '2026-09-11'
 
 
+@pytest.mark.django
 def test_daily_range_validation_multi_day_inclusive(monkeypatch):
     captured = {}
 
@@ -126,16 +133,19 @@ def test_daily_range_validation_multi_day_inclusive(monkeypatch):
     assert captured == {'start': '2026-09-10', 'end': '2026-09-11'}
 
 
+@pytest.mark.django
 def test_daily_range_validation_invalid_date():
     response = daily_heart_rate(DummyRequest(path='/api/heart-rate/daily', query={'from': '2026-09-xx', 'to': '2026-09-11'}))
     assert response.status_code == 400
 
 
+@pytest.mark.django
 def test_daily_range_validation_reversed_range():
     response = daily_heart_rate(DummyRequest(path='/api/heart-rate/daily', query={'from': '2026-09-12', 'to': '2026-09-11'}))
     assert response.status_code == 400
 
 
+@pytest.mark.django
 def test_daily_range_validation_over_90_days():
     response = daily_heart_rate(DummyRequest(path='/api/heart-rate/daily', query={'from': '2026-01-01', 'to': '2026-04-01'}))
     assert response.status_code == 400
@@ -200,7 +210,8 @@ def test_live_api_empty_fitbit_results(monkeypatch):
     assert rows == []
 
 
-def test_live_api_results_are_sorted_by_date(monkeypatch):
+@pytest.mark.django
+def test_daily_view_translates_upstream_failure(monkeypatch):
     monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'fitbit')
 
     def fake_provider_get(provider, api_version, path, params=None):
@@ -223,6 +234,7 @@ def test_live_api_results_are_sorted_by_date(monkeypatch):
     assert [row['on_date'] for row in rows] == ['2026-09-10', '2026-09-11']
 
 
+@pytest.mark.django
 def test_daily_view_translates_upstream_failure(monkeypatch):
     def fail_metrics(start_date, end_date):
         raise HealthAPIError(status_code=502, provider='fitbit', error_type='upstream', message='temporary error')
