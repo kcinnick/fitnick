@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import datetime, timedelta
 
 import requests
@@ -7,6 +8,7 @@ import requests
 GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 FITBIT_TOKEN_URL = 'https://api.fitbit.com/oauth2/token'
 MAX_DAILY_HEART_RANGE_DAYS = 90
+_PROACTIVE_REFRESH_LAST_ATTEMPT = {}
 
 
 class HealthConfigurationError(RuntimeError):
@@ -36,6 +38,71 @@ def _get_google_access_token():
 
 def _get_fitbit_access_token():
     return os.getenv('FITBIT_ACCESS_TOKEN') or os.getenv('FITBIT_ACCESS_KEY')
+
+
+def _get_token_expiry_env_key(provider):
+    if provider == 'google':
+        return 'GOOGLE_HEALTH_ACCESS_TOKEN_EXPIRES_AT'
+    if provider == 'fitbit':
+        return 'FITBIT_ACCESS_TOKEN_EXPIRES_AT'
+    return None
+
+
+def _set_token_expiry(provider, payload):
+    env_key = _get_token_expiry_env_key(provider)
+    if not env_key:
+        return
+
+    expires_in = payload.get('expires_in')
+    if expires_in is None:
+        return
+
+    try:
+        expires_in_seconds = int(float(expires_in))
+    except (TypeError, ValueError):
+        return
+
+    # Keep a small margin for clock drift.
+    os.environ[env_key] = str(int(time.time()) + max(0, expires_in_seconds) - 5)
+
+
+def _get_token_expiry(provider):
+    env_key = _get_token_expiry_env_key(provider)
+    if not env_key:
+        return None
+
+    raw_value = os.getenv(env_key)
+    if not raw_value:
+        return None
+
+    try:
+        return int(raw_value)
+    except ValueError:
+        return None
+
+
+def _ensure_fresh_access_token(provider):
+    if os.getenv('FITNICK_AUTO_REFRESH_TOKENS', '1') != '1':
+        return
+    if os.getenv('FITNICK_PROACTIVE_REFRESH_TOKENS', '1') != '1':
+        return
+    if not can_refresh_health_token():
+        return
+
+    now = int(time.time())
+    refresh_buffer = int(os.getenv('FITNICK_TOKEN_REFRESH_BUFFER_SECONDS', '300'))
+    unknown_interval = int(os.getenv('FITNICK_TOKEN_REFRESH_UNKNOWN_INTERVAL_SECONDS', '3600'))
+
+    token_expiry = _get_token_expiry(provider)
+    if token_expiry is None:
+        last_attempt = _PROACTIVE_REFRESH_LAST_ATTEMPT.get(provider, 0)
+        if now - last_attempt < max(60, unknown_interval):
+            return
+    elif now < token_expiry - max(0, refresh_buffer):
+        return
+
+    _PROACTIVE_REFRESH_LAST_ATTEMPT[provider] = now
+    _refresh_access_token(provider)
 
 
 def _get_access_token(provider):
@@ -93,6 +160,7 @@ def _parse_error_payload(response):
 
 
 def _provider_get(provider, path, api_version, params=None):
+    _ensure_fresh_access_token(provider)
     access_token = _get_access_token(provider)
     if not access_token:
         raise HealthConfigurationError(
@@ -134,6 +202,7 @@ def _provider_get(provider, path, api_version, params=None):
 
 
 def _provider_post(provider, path, api_version, payload):
+    _ensure_fresh_access_token(provider)
     access_token = _get_access_token(provider)
     if not access_token:
         raise HealthConfigurationError(
@@ -694,6 +763,7 @@ def _refresh_google_access_token():
         return None
 
     payload = response.json()
+    _set_token_expiry('google', payload)
     access_token = payload.get('access_token')
     if not access_token:
         return None
@@ -727,6 +797,7 @@ def _refresh_fitbit_access_token():
         return None
 
     payload = response.json()
+    _set_token_expiry('fitbit', payload)
     access_token = payload.get('access_token')
     if not access_token:
         return None
