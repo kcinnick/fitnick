@@ -8,6 +8,13 @@ from sqlalchemy import create_engine
 
 
 def _offline_fitbit_response_factory():
+    try:
+        default_steps_goal = int(os.getenv('FITNICK_DEFAULT_STEPS_GOAL', '12000'))
+        if default_steps_goal <= 0:
+            default_steps_goal = 12000
+    except ValueError:
+        default_steps_goal = 12000
+
     def _body_weight_response(base_date=None, end_date=None):
         records = [
             {'dateTime': '2020-09-05', 'value': '176.0'},
@@ -97,7 +104,7 @@ def _offline_fitbit_response_factory():
             'startTime': '10:44',
             'steps': 1236,
         }],
-            'goals': {'activeMinutes': 70, 'caloriesOut': 3100, 'distance': 9.66, 'floors': 10, 'steps': 12000},
+            'goals': {'activeMinutes': 70, 'caloriesOut': 3100, 'distance': 9.66, 'floors': 10, 'steps': default_steps_goal},
             'summary': {'activityCalories': 1204, 'caloriesBMR': 1804, 'caloriesOut': 2861, 'elevation': 120,
                         'floors': 12, 'restingHeartRate': 64, 'steps': 12053}
         }
@@ -124,7 +131,7 @@ def _offline_fitbit_response_factory():
         if '/user/-/sleep/date/' in url:
             return _sleep_response()
         if url.endswith('/activities.json'):
-            return {'best': {'total': {'steps': 10000}}, 'lifetime': {'total': {'steps': 12000}}}
+            return {'best': {'total': {'steps': 10000}}, 'lifetime': {'total': {'steps': default_steps_goal}}}
         return {}
 
     return _time_series, _make_request

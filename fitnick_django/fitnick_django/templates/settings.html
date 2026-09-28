@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="main">
+    <h2>Settings</h2>
+    <p><strong>Provider:</strong> {{ provider }} | <strong>Mode:</strong> {{ service_mode }}</p>
+
+    {% if message %}
+        <div class="alert alert-success">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+        <div class="alert alert-warning">{{ error }}</div>
+    {% endif %}
+
+    <div class="panel panel-default">
+        <div class="panel-heading">Daily Steps Goal</div>
+        <div class="panel-body">
+            <p><strong>Effective Goal:</strong> {{ effective_goal }}</p>
+            <p><strong>Override Goal:</strong> {% if override_goal %}{{ override_goal }}{% else %}Not set{% endif %}</p>
+            <p><strong>Provider Goal:</strong> {% if provider_goal %}{{ provider_goal }}{% else %}Unavailable{% endif %}</p>
+            {% if provider_goal_error %}
+                <p class="text-muted">Provider goal lookup error: {{ provider_goal_error }}</p>
+            {% endif %}
+            <p><strong>Default Goal:</strong> {{ default_goal }} (via FITNICK_DEFAULT_STEPS_GOAL)</p>
+        </div>
+    </div>
+
+    <div class="panel panel-primary">
+        <div class="panel-heading">Set Override</div>
+        <div class="panel-body">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="save_override" />
+                <div class="form-group">
+                    <label for="steps_goal">Daily steps goal</label>
+                    <input id="steps_goal" class="form-control" type="number" min="1" step="1" name="steps_goal" value="{% if override_goal %}{{ override_goal }}{% endif %}" />
+                </div>
+                <button class="btn btn-primary" type="submit">Save Override</button>
+            </form>
+            <hr/>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="clear_override" />
+                <button class="btn btn-default" type="submit">Use Provider/Default Goal</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
