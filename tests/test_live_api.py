@@ -1,3 +1,5 @@
+import time
+
 import fitnick.base.live_api as live_api
 
 
@@ -35,6 +37,7 @@ def test_get_access_token_refreshes_google_when_missing(monkeypatch):
 def test_provider_get_retries_once_after_401(monkeypatch):
     monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
     monkeypatch.setenv('FITNICK_AUTO_REFRESH_TOKENS', '1')
+    monkeypatch.setenv('FITNICK_PROACTIVE_REFRESH_TOKENS', '0')
     monkeypatch.setenv('GOOGLE_HEALTH_ACCESS_TOKEN', 'stale-token')
     monkeypatch.setenv('GOOGLE_HEALTH_CLIENT_ID', 'cid')
     monkeypatch.setenv('GOOGLE_HEALTH_CLIENT_SECRET', 'csecret')
@@ -60,6 +63,56 @@ def test_provider_get_retries_once_after_401(monkeypatch):
     assert identity['provider'] == 'google'
     assert identity['health_user_id'] == 'abc123'
     assert request_tokens == ['Bearer stale-token', 'Bearer fresh-token']
+
+
+def test_refresh_sets_google_token_expiry(monkeypatch):
+    monkeypatch.setenv('FITNICK_AUTO_REFRESH_TOKENS', '1')
+    monkeypatch.setenv('GOOGLE_HEALTH_CLIENT_ID', 'cid')
+    monkeypatch.setenv('GOOGLE_HEALTH_CLIENT_SECRET', 'csecret')
+    monkeypatch.setenv('GOOGLE_HEALTH_REFRESH_TOKEN', 'rtok')
+    monkeypatch.delenv('GOOGLE_HEALTH_ACCESS_TOKEN', raising=False)
+    monkeypatch.delenv('HEALTH_ACCESS_TOKEN', raising=False)
+    monkeypatch.delenv('GOOGLE_HEALTH_ACCESS_TOKEN_EXPIRES_AT', raising=False)
+
+    def fake_post(url, data=None, timeout=0, **kwargs):
+        return DummyResponse(payload={'access_token': 'new-access-token', 'expires_in': 3600})
+
+    monkeypatch.setattr('fitnick.base.live_api.requests.post', fake_post)
+
+    token = live_api._get_access_token('google')
+    expires_at = int(live_api.os.getenv('GOOGLE_HEALTH_ACCESS_TOKEN_EXPIRES_AT', '0'))
+
+    assert token == 'new-access-token'
+    assert expires_at > int(time.time())
+
+
+def test_provider_get_proactively_refreshes_when_expiring(monkeypatch):
+    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
+    monkeypatch.setenv('FITNICK_AUTO_REFRESH_TOKENS', '1')
+    monkeypatch.setenv('FITNICK_PROACTIVE_REFRESH_TOKENS', '1')
+    monkeypatch.setenv('FITNICK_TOKEN_REFRESH_BUFFER_SECONDS', '300')
+    monkeypatch.setenv('GOOGLE_HEALTH_ACCESS_TOKEN', 'stale-token')
+    monkeypatch.setenv('GOOGLE_HEALTH_ACCESS_TOKEN_EXPIRES_AT', str(int(time.time()) - 10))
+    monkeypatch.setenv('GOOGLE_HEALTH_CLIENT_ID', 'cid')
+    monkeypatch.setenv('GOOGLE_HEALTH_CLIENT_SECRET', 'csecret')
+    monkeypatch.setenv('GOOGLE_HEALTH_REFRESH_TOKEN', 'rtok')
+
+    request_tokens = []
+
+    def fake_get(url, headers=None, params=None, timeout=0, **kwargs):
+        request_tokens.append(headers.get('Authorization', ''))
+        return DummyResponse(payload={'healthUserId': 'abc123', 'legacyUserId': 'legacy-1'})
+
+    def fake_post(url, data=None, timeout=0, **kwargs):
+        return DummyResponse(payload={'access_token': 'fresh-token', 'expires_in': 3600})
+
+    monkeypatch.setattr('fitnick.base.live_api.requests.get', fake_get)
+    monkeypatch.setattr('fitnick.base.live_api.requests.post', fake_post)
+
+    identity = live_api.get_identity_summary()
+
+    assert identity['provider'] == 'google'
+    assert request_tokens == ['Bearer fresh-token']
 
 def test_uses_live_health_api_returns_false_when_token_missing(monkeypatch):
     monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
