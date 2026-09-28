@@ -21,6 +21,13 @@ from fitnick.base.live_api import (
 from fitnick import __version__
 
 
+def _is_scope_permission_error(exc):
+    if not isinstance(exc, HealthAPIError):
+        return False
+    error_type = str(getattr(exc, 'error_type', '')).lower()
+    return exc.status_code == 403 and ('permission' in error_type or 'scope' in str(exc).lower())
+
+
 def index(request):
     goal = 12000  # set automatically, eventually..
     today = datetime.today().strftime('%Y-%m-%d')
@@ -41,10 +48,8 @@ def index(request):
         try:
             identity = get_identity_summary()
         except HealthAPIError as exc:
-            # 403 permission_denied for identity usually means missing profile scope
-            # Log but don't display error if it's just a scope issue
-            if exc.status_code == 403 and 'permission' in exc.error_type.lower():
-                pass  # Silently skip identity if scope is missing
+            if _is_scope_permission_error(exc):
+                pass
             else:
                 errors.append(str(exc))
         except HealthConfigurationError as exc:
@@ -52,17 +57,26 @@ def index(request):
 
         try:
             recent_steps = get_recent_steps(days=7)
-        except (HealthAPIError, HealthConfigurationError) as exc:
+        except HealthAPIError as exc:
+            if not _is_scope_permission_error(exc):
+                errors.append(str(exc))
+        except HealthConfigurationError as exc:
             errors.append(str(exc))
 
         try:
             latest_sleep = get_latest_sleep_session()
-        except (HealthAPIError, HealthConfigurationError) as exc:
+        except HealthAPIError as exc:
+            if not _is_scope_permission_error(exc):
+                errors.append(str(exc))
+        except HealthConfigurationError as exc:
             errors.append(str(exc))
 
         try:
             latest_body_fat = get_latest_body_fat_entry()
-        except (HealthAPIError, HealthConfigurationError) as exc:
+        except HealthAPIError as exc:
+            if not _is_scope_permission_error(exc):
+                errors.append(str(exc))
+        except HealthConfigurationError as exc:
             errors.append(str(exc))
 
     dt = datetime.now()
