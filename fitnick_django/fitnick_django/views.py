@@ -138,17 +138,26 @@ def index(request):
 
         try:
             recent_steps = get_recent_steps(days=7)
-        except (HealthAPIError, HealthConfigurationError) as exc:
+        except HealthAPIError as exc:
+            if not _is_scope_permission_error(exc):
+                errors.append(str(exc))
+        except HealthConfigurationError as exc:
             errors.append(str(exc))
 
         try:
             latest_sleep = get_latest_sleep_session()
-        except (HealthAPIError, HealthConfigurationError) as exc:
+        except HealthAPIError as exc:
+            if not _is_scope_permission_error(exc):
+                errors.append(str(exc))
+        except HealthConfigurationError as exc:
             errors.append(str(exc))
 
         try:
             latest_body_fat = get_latest_body_fat_entry()
-        except (HealthAPIError, HealthConfigurationError) as exc:
+        except HealthAPIError as exc:
+            if not _is_scope_permission_error(exc):
+                errors.append(str(exc))
+        except HealthConfigurationError as exc:
             errors.append(str(exc))
 
     dt = datetime.now()
