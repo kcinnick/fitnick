@@ -5,6 +5,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from fitnick.base.base import get_authorized_client
+from fitnick.base.live_api import (
+    HealthConfigurationError,
+    get_health_provider,
+    get_latest_body_fat_entry,
+    uses_live_health_api,
+)
 from fitnick.body.models.bodyfat import BodyFatRecord, bodyfat_table
 from fitnick.database.database import Database
 from fitnick.time_series import set_dates
@@ -14,7 +20,10 @@ class BodyFat:
     def __init__(self, config):
         self.config = {'schema': 'bodyfat', 'resource': 'fat'}
         self.config.update(config)
-        self.authorized_client = get_authorized_client()
+        self.authorized_client = (
+            None if get_health_provider() == 'google' and uses_live_health_api()
+            else get_authorized_client()
+        )
 
     def query(self):
         # set base & end date if this is a period search
@@ -25,6 +34,18 @@ class BodyFat:
         #  entries for body fat if the authorized user proactively creates them.
         #  because of this, some unexpected behavior may occur - i.e. querying 1m
         #  will only return as many entries as there were in that month, not 30/31.
+
+        if get_health_provider() == 'google' and uses_live_health_api():
+            entry = get_latest_body_fat_entry()
+            return {
+                'fat': [{
+                    'date': entry['date'],
+                    'fat': entry['percentage'],
+                    'logId': entry['date'],
+                    'source': 'google_health',
+                    'time': '',
+                }]
+            } if entry else {'fat': []}
 
         response = self.authorized_client.make_request(
             method='get',
@@ -91,6 +112,9 @@ class BodyFat:
         :param fat: decimal fat value to log
         :return:
         """
+        if get_health_provider() == 'google' and uses_live_health_api():
+            raise HealthConfigurationError('Google Health body-fat data is read-only.')
+
         response = self.authorized_client.make_request(
             method='post',
             url=f'https://api.fitbit.com/{self.authorized_client.API_VERSION}' +
@@ -107,6 +131,9 @@ class BodyFat:
         :param log_id: ID of body fat log to delete
         :return:
         """
+        if get_health_provider() == 'google' and uses_live_health_api():
+            raise HealthConfigurationError('Google Health body-fat data is read-only.')
+
         from fitbit.exceptions import BadResponse, HTTPNotFound
 
         try:

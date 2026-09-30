@@ -704,6 +704,34 @@ def get_latest_body_fat_entry(lookback_days=120):
     }
 
 
+def get_body_weight(start_date, end_date):
+    """Return Google Health weight samples in the requested inclusive date range."""
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+    rows = _google_daily_data_points(
+        data_type='weight',
+        filter_param='weight',
+        start_date=start_date,
+        end_date=end_date,
+    )
+    result = []
+    for row in rows:
+        weight = row.get('weight', {}) if isinstance(row, dict) else {}
+        sample_time = weight.get('sampleTime', {}).get('physicalTime', '')
+        if not sample_time:
+            continue
+        on_date = sample_time[:10]
+        parsed_date = _coerce_iso_date(on_date)
+        if parsed_date is None or parsed_date < start_date or parsed_date > end_date:
+            continue
+        kilograms = _coerce_float(weight.get('kilograms'))
+        if kilograms is not None:
+            result.append({'date': on_date, 'kilograms': kilograms})
+    return result
+
+
 def get_identity_summary():
     provider = get_health_provider()
     if provider == 'google':
