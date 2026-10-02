@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -20,6 +21,12 @@ from fitnick.base.live_api import (
 )
 from fitnick import __version__
 
+LOCAL_TIME_ZONE = ZoneInfo(os.getenv('FITNICK_TIME_ZONE', 'America/New_York'))
+
+
+def _local_now():
+    return datetime.now(LOCAL_TIME_ZONE)
+
 
 def _is_scope_permission_error(exc):
     if not isinstance(exc, HealthAPIError):
@@ -30,7 +37,8 @@ def _is_scope_permission_error(exc):
 
 def index(request):
     goal = 12000  # set automatically, eventually..
-    today = datetime.today().strftime('%Y-%m-%d')
+    now = _local_now()
+    today = now.strftime('%Y-%m-%d')
     errors = []
     steps_this_time = 0
     identity = None
@@ -79,7 +87,7 @@ def index(request):
         except HealthConfigurationError as exc:
             errors.append(str(exc))
 
-    dt = datetime.now()
+    dt = _local_now()
     percent = (steps_this_time / goal) * 100 if goal else 0
     index_context = {
         "base_date": today,
@@ -106,7 +114,7 @@ def get_steps_today(request):
     error = None
 
     goal = 12000
-    today = datetime.today().strftime('%Y-%m-%d')
+    today = _local_now().strftime('%Y-%m-%d')
     try:
         response = get_daily_activity_summary(today)
         steps_this_time = int(response.get('summary', {}).get('steps', 0))
@@ -115,7 +123,7 @@ def get_steps_today(request):
         error = str(exc)
         status_code = getattr(exc, 'status_code', 500)
 
-    dt = datetime.now()
+    dt = _local_now()
     percent = (steps_this_time / goal) * 100 if goal else 0
     index_context = {
         "base_date": today,
