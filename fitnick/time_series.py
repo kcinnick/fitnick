@@ -9,6 +9,13 @@ from sqlalchemy.orm import sessionmaker
 from tqdm import tqdm
 
 from fitnick.base.base import get_authorized_client
+from fitnick.base.live_api import (
+    HealthConfigurationError,
+    get_daily_activity_summary,
+    get_daily_heart_rate_metrics,
+    get_health_provider,
+    uses_live_health_api,
+)
 from fitnick.database.database import Database
 
 
@@ -136,7 +143,10 @@ class TimeSeries:
 
     def __init__(self, config):
         self.config = config
-        self.authorized_client = get_authorized_client()
+        self.authorized_client = (
+            None if get_health_provider() == 'google' and uses_live_health_api()
+            else get_authorized_client()
+        )
         return
 
     def query(self):
@@ -146,6 +156,41 @@ class TimeSeries:
         :return:
         """
         self.config = set_dates(self.config)
+
+        if get_health_provider() == 'google' and uses_live_health_api():
+            start_date = self.config['base_date']
+            end_date = self.config['end_date']
+            if isinstance(start_date, str):
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            if isinstance(end_date, str):
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            if self.config['resource'] == 'heart':
+                metrics = get_daily_heart_rate_metrics(
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+                return {
+                    'activities-heart': [
+                        {
+                            'dateTime': row['on_date'],
+                            'value': {
+                                'restingHeartRate': row['resting_bpm'],
+                                'heartRateZones': [],
+                            },
+                        }
+                        for row in metrics
+                    ]
+                }
+            if self.config['resource'] == 'steps':
+                summary = get_daily_activity_summary(str(self.config['base_date']))
+                return {'activities-steps': [{
+                    'dateTime': str(self.config['base_date']),
+                    'value': {'steps': summary.get('summary', {}).get('steps', 0)},
+                }]}
+            raise HealthConfigurationError(
+                f'Google Health does not provide a compatible time-series response for '
+                f'resource "{self.config["resource"]}".'
+            )
 
         if self.config['resource'] in ['heart', 'steps', 'calories', 'caloriesBMR', 'distance',
                                        'floors', 'elevation', 'minutesSedentary', 'minutesLightlyActive',

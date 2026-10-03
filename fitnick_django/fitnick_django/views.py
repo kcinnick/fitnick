@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -20,10 +21,24 @@ from fitnick.base.live_api import (
 )
 from fitnick import __version__
 
+LOCAL_TIME_ZONE = ZoneInfo(os.getenv('FITNICK_TIME_ZONE', 'America/New_York'))
+
+
+def _local_now():
+    return datetime.now(LOCAL_TIME_ZONE)
+
+
+def _is_scope_permission_error(exc):
+    if not isinstance(exc, HealthAPIError):
+        return False
+    error_type = str(getattr(exc, 'error_type', '')).lower()
+    return exc.status_code == 403 and ('permission' in error_type or 'scope' in str(exc).lower())
+
 
 def index(request):
     goal = 12000  # set automatically, eventually..
-    today = datetime.today().strftime('%Y-%m-%d')
+    now = _local_now()
+    today = now.strftime('%Y-%m-%d')
     errors = []
     steps_this_time = 0
     identity = None
@@ -41,10 +56,8 @@ def index(request):
         try:
             identity = get_identity_summary()
         except HealthAPIError as exc:
-            # 403 permission_denied for identity usually means missing profile scope
-            # Log but don't display error if it's just a scope issue
-            if exc.status_code == 403 and 'permission' in exc.error_type.lower():
-                pass  # Silently skip identity if scope is missing
+            if _is_scope_permission_error(exc):
+                pass
             else:
                 errors.append(str(exc))
         except HealthConfigurationError as exc:
@@ -52,20 +65,29 @@ def index(request):
 
         try:
             recent_steps = get_recent_steps(days=7)
-        except (HealthAPIError, HealthConfigurationError) as exc:
+        except HealthAPIError as exc:
+            if not _is_scope_permission_error(exc):
+                errors.append(str(exc))
+        except HealthConfigurationError as exc:
             errors.append(str(exc))
 
         try:
             latest_sleep = get_latest_sleep_session()
-        except (HealthAPIError, HealthConfigurationError) as exc:
+        except HealthAPIError as exc:
+            if not _is_scope_permission_error(exc):
+                errors.append(str(exc))
+        except HealthConfigurationError as exc:
             errors.append(str(exc))
 
         try:
             latest_body_fat = get_latest_body_fat_entry()
-        except (HealthAPIError, HealthConfigurationError) as exc:
+        except HealthAPIError as exc:
+            if not _is_scope_permission_error(exc):
+                errors.append(str(exc))
+        except HealthConfigurationError as exc:
             errors.append(str(exc))
 
-    dt = datetime.now()
+    dt = _local_now()
     percent = (steps_this_time / goal) * 100 if goal else 0
     index_context = {
         "base_date": today,
@@ -92,7 +114,7 @@ def get_steps_today(request):
     error = None
 
     goal = 12000
-    today = datetime.today().strftime('%Y-%m-%d')
+    today = _local_now().strftime('%Y-%m-%d')
     try:
         response = get_daily_activity_summary(today)
         steps_this_time = int(response.get('summary', {}).get('steps', 0))
@@ -101,7 +123,7 @@ def get_steps_today(request):
         error = str(exc)
         status_code = getattr(exc, 'status_code', 500)
 
-    dt = datetime.now()
+    dt = _local_now()
     percent = (steps_this_time / goal) * 100 if goal else 0
     index_context = {
         "base_date": today,

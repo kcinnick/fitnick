@@ -127,6 +127,44 @@ def test_uses_live_health_api_returns_false_when_token_missing(monkeypatch):
     assert live_api.uses_live_health_api() is False
 
 
+def test_google_rollup_uses_all_health_data_sources(monkeypatch):
+    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
+    monkeypatch.delenv('GOOGLE_HEALTH_DATA_SOURCE_FAMILY', raising=False)
+    captured = {}
+
+    def fake_provider_post(provider, api_version, path, payload):
+        captured['family'] = payload['dataSourceFamily']
+        return {'rollupDataPoints': []}
+
+    monkeypatch.setattr('fitnick.base.live_api._provider_post', fake_provider_post)
+    live_api._google_daily_steps('2026-09-11')
+
+    assert captured['family'] == 'users/me/dataSourceFamilies/all-sources'
+
+
+def test_google_body_weight_maps_kilograms_to_provider_rows(monkeypatch):
+    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
+
+    def fake_provider_get(provider, api_version, path, params=None):
+        assert provider == 'google'
+        assert path == 'users/me/dataTypes/weight/dataPoints'
+        return {
+            'dataPoints': [{
+                'weight': {
+                    'sampleTime': {'physicalTime': '2026-09-11T08:00:00Z'},
+                    'kilograms': 80,
+                }
+            }]
+        }
+
+    monkeypatch.setattr('fitnick.base.live_api._provider_get', fake_provider_get)
+
+    assert live_api.get_body_weight(
+        live_api.datetime(2026, 9, 11).date(),
+        live_api.datetime(2026, 9, 11).date(),
+    ) == [{'date': '2026-09-11', 'kilograms': 80.0}]
+
+
 def test_latest_sleep_session_preserves_wake_time(monkeypatch):
     monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
     monkeypatch.setattr(
@@ -201,4 +239,3 @@ def test_sleep_selection_falls_back_to_longest_latest_short_session(monkeypatch)
     longer = _sleep_row('2026-08-29T12:00:00-04:00', '2026-08-29T13:00:00-04:00', 60)
 
     assert live_api._select_latest_overnight_sleep([shorter, longer]) is longer
-

@@ -10,17 +10,30 @@ from tqdm import tqdm
 from fitnick.activity.models.activity import ActivityLogRecord, activity_log_table, steps_intraday_table
 from fitnick.activity.models.calories import Calories, calories_table
 from fitnick.base.base import get_authorized_client, get_df_from_db, create_spark_session
+from fitnick.base.live_api import (
+    HealthConfigurationError,
+    get_daily_activity_summary,
+    get_health_provider,
+    uses_live_health_api,
+)
 
 
 class Activity:
     def __init__(self, config):
         self.config = config
-        self.authorized_client = get_authorized_client()
+        self.authorized_client = (
+            None if get_health_provider() == 'google' and uses_live_health_api()
+            else get_authorized_client()
+        )
         self.config['resource'] = 'activity'
         self.config['schema'] = 'activity'
         return
 
     def query_steps_intraday(self):
+        if get_health_provider() == 'google' and uses_live_health_api():
+            value = get_daily_activity_summary(str(self.config['base_date'])).get('summary', {}).get('steps', 0)
+            return {'dataset': [{'time': '00:00:00', 'value': value}]}
+
         response = self.authorized_client.make_request(
             'https://api.fitbit.com/1/user/-/activities/steps/date/{}/1d.json'.format(
                 self.config['base_date']
@@ -42,6 +55,9 @@ class Activity:
         endpoint, which returns the *actual* calories burned per day (i.e., the value shown on the FitBit app.)
         This method implements that endpoint, allowing for accurate calorie data collection.
         """
+        if get_health_provider() == 'google' and uses_live_health_api():
+            return get_daily_activity_summary(str(self.config['base_date']))
+
         response = self.authorized_client.make_request(
             method='get',
             url=f'https://api.fitbit.com/{self.authorized_client.API_VERSION}' +
@@ -205,6 +221,9 @@ class Activity:
         endpoint, which does not appear to be implemented in python-fitbit proper.
         :return:
         """
+        if get_health_provider() == 'google' and uses_live_health_api():
+            raise HealthConfigurationError('Google Health does not provide Fitbit lifetime activity statistics.')
+
         response = self.authorized_client.make_request('https://api.fitbit.com/1/user/-/activities.json')
 
         best_stats = response.pop('best').get('total')
