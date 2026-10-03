@@ -25,6 +25,10 @@ services:
         value: "0"
       - key: FITNICK_HEALTH_PROVIDER
         value: "google"
+      - key: FITNICK_TIME_ZONE
+        value: "America/New_York"
+      - key: GOOGLE_HEALTH_DATA_SOURCE_FAMILY
+        value: "users/me/dataSourceFamilies/all-sources"
       - key: FITNICK_AUTO_REFRESH_TOKENS
         value: "1"
       - key: FITNICK_PROACTIVE_REFRESH_TOKENS

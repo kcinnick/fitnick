@@ -1,6 +1,7 @@
 import os
 import json
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -20,6 +21,12 @@ from fitnick.base.live_api import (
     uses_live_health_api,
 )
 from fitnick import __version__
+
+LOCAL_TIME_ZONE = ZoneInfo(os.getenv('FITNICK_TIME_ZONE', 'America/New_York'))
+
+
+def _local_now():
+    return datetime.now(LOCAL_TIME_ZONE)
 
 
 DEFAULT_STEPS_GOAL = 12000
@@ -160,7 +167,7 @@ def index(request):
         except HealthConfigurationError as exc:
             errors.append(str(exc))
 
-    dt = datetime.now()
+    dt = _local_now()
     percent = (steps_this_time / goal) * 100 if goal else 0
     index_context = {
         "base_date": today,
@@ -197,7 +204,7 @@ def get_steps_today(request):
         error = str(exc)
         status_code = getattr(exc, 'status_code', 500)
 
-    dt = datetime.now()
+    dt = _local_now()
     percent = (steps_this_time / goal) * 100 if goal else 0
     index_context = {
         "base_date": today,
