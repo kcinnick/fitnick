@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -28,19 +29,96 @@ def _local_now():
     return datetime.now(LOCAL_TIME_ZONE)
 
 
+DEFAULT_STEPS_GOAL = 12000
+
+
+def _settings_file_path():
+    configured = os.getenv('FITNICK_SETTINGS_FILE', '').strip()
+    if configured:
+        return configured
+    return '/var/data/fitnick/settings.json'
+
+
+def _load_user_settings():
+    path = _settings_file_path()
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            payload = json.load(f)
+            return payload if isinstance(payload, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_user_settings(settings_payload):
+    path = _settings_file_path()
+    directory = os.path.dirname(path)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(settings_payload, f, indent=2, sort_keys=True)
+
+
+def _coerce_positive_int(value):
+    try:
+        parsed = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _configured_default_steps_goal():
+    return _coerce_positive_int(os.getenv('FITNICK_DEFAULT_STEPS_GOAL', str(DEFAULT_STEPS_GOAL))) or DEFAULT_STEPS_GOAL
+
+
+def _goal_from_activity_response(response):
+    if not isinstance(response, dict):
+        return None
+    goals = response.get('goals', {})
+    if isinstance(goals, dict):
+        return _coerce_positive_int(goals.get('steps'))
+    return None
+
+
+def _get_steps_goal_override():
+    return _coerce_positive_int(_load_user_settings().get('steps_goal_override'))
+
+
+def _set_steps_goal_override(goal_value):
+    settings_payload = _load_user_settings()
+    settings_payload['steps_goal_override'] = int(goal_value)
+    _save_user_settings(settings_payload)
+
+
+def _clear_steps_goal_override():
+    settings_payload = _load_user_settings()
+    if 'steps_goal_override' in settings_payload:
+        del settings_payload['steps_goal_override']
+    _save_user_settings(settings_payload)
+
+
+def _resolve_steps_goal(activity_response=None):
+    override_goal = _get_steps_goal_override()
+    if override_goal:
+        return override_goal
+    provider_goal = _goal_from_activity_response(activity_response)
+    if provider_goal:
+        return provider_goal
+    return _configured_default_steps_goal()
+
+
 def _is_scope_permission_error(exc):
     if not isinstance(exc, HealthAPIError):
         return False
     error_type = str(getattr(exc, 'error_type', '')).lower()
     return exc.status_code == 403 and ('permission' in error_type or 'scope' in str(exc).lower())
-
-
 def index(request):
-    goal = 12000  # set automatically, eventually..
-    now = _local_now()
-    today = now.strftime('%Y-%m-%d')
+    goal = _configured_default_steps_goal()
+    today = datetime.today().strftime('%Y-%m-%d')
     errors = []
     steps_this_time = 0
+    daily_activity_response = None
     identity = None
     recent_steps = []
     latest_sleep = None
@@ -48,16 +126,18 @@ def index(request):
 
     if uses_live_health_api():
         try:
-            response = get_daily_activity_summary(today)
-            steps_this_time = int(response.get('summary', {}).get('steps', 0))
+            daily_activity_response = get_daily_activity_summary(today)
+            steps_this_time = int(daily_activity_response.get('summary', {}).get('steps', 0))
         except (HealthAPIError, HealthConfigurationError) as exc:
             errors.append(str(exc))
+
+        goal = _resolve_steps_goal(daily_activity_response)
 
         try:
             identity = get_identity_summary()
         except HealthAPIError as exc:
             if _is_scope_permission_error(exc):
-                pass
+                pass  # Silently skip identity if scope is missing
             else:
                 errors.append(str(exc))
         except HealthConfigurationError as exc:
@@ -113,11 +193,12 @@ def get_steps_today(request):
     status_code = 200
     error = None
 
-    goal = 12000
-    today = _local_now().strftime('%Y-%m-%d')
+    goal = _configured_default_steps_goal()
+    today = datetime.today().strftime('%Y-%m-%d')
     try:
         response = get_daily_activity_summary(today)
         steps_this_time = int(response.get('summary', {}).get('steps', 0))
+        goal = _resolve_steps_goal(response)
     except (HealthAPIError, HealthConfigurationError) as exc:
         steps_this_time = 0
         error = str(exc)
@@ -214,6 +295,53 @@ def openapi_spec(request):
                 }
             },
         }
+    )
+
+
+def settings_page(request):
+    message = ''
+    error = ''
+    today = datetime.today().strftime('%Y-%m-%d')
+    provider_goal = None
+    provider_goal_error = ''
+
+    if request.method == 'POST':
+        action = request.POST.get('action', 'save')
+        if action == 'clear_override':
+            _clear_steps_goal_override()
+            message = 'Goal override cleared. Using provider/default goal now.'
+        else:
+            parsed_goal = _coerce_positive_int(request.POST.get('steps_goal'))
+            if parsed_goal is None:
+                error = 'Please enter a positive whole number for the daily steps goal.'
+            else:
+                _set_steps_goal_override(parsed_goal)
+                message = 'Goal override saved.'
+
+    if uses_live_health_api():
+        try:
+            provider_response = get_daily_activity_summary(today)
+            provider_goal = _goal_from_activity_response(provider_response)
+        except (HealthAPIError, HealthConfigurationError) as exc:
+            provider_goal_error = str(exc)
+
+    override_goal = _get_steps_goal_override()
+    effective_goal = override_goal or provider_goal or _configured_default_steps_goal()
+
+    return render(
+        request,
+        'settings.html',
+        {
+            'provider': get_health_provider(),
+            'service_mode': 'live' if uses_live_health_api() else 'offline',
+            'override_goal': override_goal,
+            'provider_goal': provider_goal,
+            'provider_goal_error': provider_goal_error,
+            'effective_goal': effective_goal,
+            'default_goal': _configured_default_steps_goal(),
+            'message': message,
+            'error': error,
+        },
     )
 
 
