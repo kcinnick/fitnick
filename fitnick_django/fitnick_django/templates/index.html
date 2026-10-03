@@ -19,6 +19,14 @@
                     <h3>{{ steps }}</h3>
                     <p>{{ percent_str }}% of {{ goal }}</p>
                     <progress id="steps" value="{{ percent }}" max="100">{{ percent }}%</progress>
+                    {% if pacing.status == 'reached' %}
+                        <p class="text-success"><strong>Goal reached!</strong></p>
+                    {% elif pacing.status == 'missed' %}
+                        <p class="text-muted">{{ pacing.remaining }} steps short; today's walking window has ended.</p>
+                    {% elif pacing %}
+                        <p><strong>{{ pacing.remaining }}</strong> steps to go &middot; {{ pacing.hours_left }}h left</p>
+                        <p>Need ~<strong>{{ pacing.steps_per_hour }}</strong> steps/hour ({{ pacing.steps_per_minute }}/min)</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
