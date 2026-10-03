@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from fitnick.base.base import get_authorized_client
+from fitnick.base.live_api import get_health_provider, get_latest_sleep_session, uses_live_health_api
 from fitnick.sleep.models import SleepSummary, SleepLevel, sleep_summary_table, sleep_level_table
 from fitnick.time_series import TimeSeries
 
@@ -12,8 +13,8 @@ class SleepTimeSeries(TimeSeries):
         config = dict(config)
         config['resource'] = 'sleep'
         super().__init__(config)
-        self.authorized_client = get_authorized_client()
-        self.authorized_client.API_VERSION = '1.2'
+        if self.authorized_client is not None:
+            self.authorized_client.API_VERSION = '1.2'
         #  Fitbit is deprecating the 1 version of these endpoints, as described here:
         #  https://dev.fitbit.com/build/reference/web-api/sleep-v1/
         self.config = config
@@ -26,6 +27,23 @@ class SleepTimeSeries(TimeSeries):
         supports date range retrieval.
         :return:
         """
+        if get_health_provider() == 'google' and uses_live_health_api():
+            session = get_latest_sleep_session()
+            if not session:
+                return {'sleep': []}
+            return {'sleep': [{
+                'dateOfSleep': session['date'],
+                'duration': (session['minutes_asleep'] + session['minutes_awake']) * 60000,
+                'efficiency': None,
+                'endTime': session['wake_time'],
+                'minutesAsleep': session['minutes_asleep'],
+                'minutesAwake': session['minutes_awake'],
+                'startTime': '',
+                'timeInBed': session['minutes_asleep'] + session['minutes_awake'],
+                'logId': session['wake_time'],
+                'levels': {'summary': {}},
+            }]}
+
         response = self.authorized_client.make_request(
             method='get',
             url=f'https://api.fitbit.com/{self.authorized_client.API_VERSION}' +

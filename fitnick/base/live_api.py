@@ -1,6 +1,7 @@
 import os
 import time
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -9,6 +10,15 @@ GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 FITBIT_TOKEN_URL = 'https://api.fitbit.com/oauth2/token'
 MAX_DAILY_HEART_RANGE_DAYS = 90
 _PROACTIVE_REFRESH_LAST_ATTEMPT = {}
+DEFAULT_TIME_ZONE = 'America/New_York'
+
+
+def _local_today():
+    return datetime.now(ZoneInfo(os.getenv('FITNICK_TIME_ZONE', DEFAULT_TIME_ZONE))).date()
+
+
+def _google_data_source_family():
+    return os.getenv('GOOGLE_HEALTH_DATA_SOURCE_FAMILY', 'users/me/dataSourceFamilies/all-sources')
 
 
 class HealthConfigurationError(RuntimeError):
@@ -258,7 +268,7 @@ def _google_daily_steps(activity_date):
             },
         },
         'windowSizeDays': 1,
-        'dataSourceFamily': 'users/me/dataSourceFamilies/google-sources',
+        'dataSourceFamily': _google_data_source_family(),
     }
     payload = _provider_post(
         provider='google',
@@ -285,7 +295,7 @@ def _google_daily_steps_rollup(start_date, end_date):
             },
         },
         'windowSizeDays': 1,
-        'dataSourceFamily': 'users/me/dataSourceFamilies/google-sources',
+        'dataSourceFamily': _google_data_source_family(),
     }
     return _provider_post(
         provider='google',
@@ -301,7 +311,7 @@ def get_recent_steps(days=7):
         return []
 
     if provider == 'google':
-        today = datetime.utcnow().date()
+        today = _local_today()
         start_date = today - timedelta(days=days - 1)
         end_date = today + timedelta(days=1)
         payload = _google_daily_steps_rollup(start_date=start_date, end_date=end_date)
@@ -323,7 +333,7 @@ def get_recent_steps(days=7):
         return rows
 
     if provider == 'fitbit':
-        today = datetime.utcnow().date()
+        today = _local_today()
         rows = []
         for offset in range(days - 1, -1, -1):
             target = (today - timedelta(days=offset)).strftime('%Y-%m-%d')
@@ -645,13 +655,13 @@ def get_latest_sleep_session(lookback_days=14):
     if provider != 'google':
         return None
 
-    cutoff = (datetime.utcnow().date() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
+    cutoff = (_local_today() - timedelta(days=lookback_days)).strftime('%Y-%m-%d')
     payload = _provider_get(
         provider='google',
         api_version='v4',
         path='users/me/dataTypes/sleep/dataPoints:reconcile',
         params={
-            'dataSourceFamily': 'users/me/dataSourceFamilies/google-sources',
+            'dataSourceFamily': _google_data_source_family(),
             'filter': f'sleep.interval.civil_end_time >= "{cutoff}"',
         },
     )
@@ -680,7 +690,13 @@ def get_latest_body_fat_entry(lookback_days=120):
     if provider != 'google':
         return None
 
-    cutoff = (datetime.utcnow() - timedelta(days=lookback_days)).strftime('%Y-%m-%dT00:00:00Z')
+    local_zone = ZoneInfo(os.getenv('FITNICK_TIME_ZONE', DEFAULT_TIME_ZONE))
+    cutoff = (
+        datetime.combine(_local_today() - timedelta(days=lookback_days), datetime.min.time())
+        .replace(tzinfo=local_zone)
+        .astimezone(ZoneInfo('UTC'))
+        .strftime('%Y-%m-%dT%H:%M:%SZ')
+    )
     payload = _provider_get(
         provider='google',
         api_version='v4',
@@ -702,6 +718,34 @@ def get_latest_body_fat_entry(lookback_days=120):
         'date': sample_time[:10],
         'percentage': body_fat.get('percentage'),
     }
+
+
+def get_body_weight(start_date, end_date):
+    """Return Google Health weight samples in the requested inclusive date range."""
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+    rows = _google_daily_data_points(
+        data_type='weight',
+        filter_param='weight',
+        start_date=start_date,
+        end_date=end_date,
+    )
+    result = []
+    for row in rows:
+        weight = row.get('weight', {}) if isinstance(row, dict) else {}
+        sample_time = weight.get('sampleTime', {}).get('physicalTime', '')
+        if not sample_time:
+            continue
+        on_date = sample_time[:10]
+        parsed_date = _coerce_iso_date(on_date)
+        if parsed_date is None or parsed_date < start_date or parsed_date > end_date:
+            continue
+        kilograms = _coerce_float(weight.get('kilograms'))
+        if kilograms is not None:
+            result.append({'date': on_date, 'kilograms': kilograms})
+    return result
 
 
 def get_identity_summary():
