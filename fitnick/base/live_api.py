@@ -590,6 +590,44 @@ def get_daily_activity_summary(activity_date):
     )
 
 
+def get_daily_steps_metrics(start_date, end_date):
+    """Daily step totals for an inclusive date window, ascending by date.
+
+    Days without data from the provider are omitted (never reported as 0).
+    """
+    provider = get_health_provider()
+    if provider == 'google':
+        payload = _google_daily_steps_rollup(start_date=start_date, end_date=end_date + timedelta(days=1))
+        rows = []
+        for row in payload.get('rollupDataPoints', []):
+            civil_start = row.get('civilStartTime', {}).get('date', {})
+            count = row.get('steps', {}).get('countSum')
+            if not civil_start or count is None:
+                continue
+            try:
+                on_date = f"{int(civil_start['year']):04d}-{int(civil_start['month']):02d}-{int(civil_start['day']):02d}"
+                rows.append({'on_date': on_date, 'steps': int(count)})
+            except (KeyError, TypeError, ValueError):
+                continue
+        rows = [r for r in rows if start_date.isoformat() <= r['on_date'] <= end_date.isoformat()]
+        rows.sort(key=lambda item: item['on_date'])
+        return rows
+    if provider == 'fitbit':
+        rows = []
+        current = start_date
+        while current <= end_date:
+            target = current.strftime('%Y-%m-%d')
+            payload = _provider_get(provider='fitbit', api_version='1', path=f'user/-/activities/date/{target}.json')
+            steps = payload.get('summary', {}).get('steps')
+            if steps is not None:
+                rows.append({'on_date': target, 'steps': int(steps)})
+            current += timedelta(days=1)
+        return rows
+    raise HealthConfigurationError(
+        f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'
+    )
+
+
 def _parse_iso_datetime(value):
     if not value:
         return None

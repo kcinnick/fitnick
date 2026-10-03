@@ -15,6 +15,7 @@ from fitnick.base.live_api import (
     get_latest_sleep_session,
     get_recent_steps,
     get_daily_heart_rate_metrics,
+    get_daily_steps_metrics,
     get_health_provider,
     get_daily_activity_summary,
     run_smoke_test,
@@ -245,6 +246,21 @@ def openapi_spec(request):
                 'version': __version__,
             },
             'paths': {
+                '/api/steps/daily': {
+                    'get': {
+                        'summary': 'Daily step totals and goal status in an inclusive date window (max 90 days)',
+                        'security': [{'ApiKeyAuth': []}],
+                        'parameters': [
+                            {'in': 'query', 'name': 'from', 'required': True, 'schema': {'type': 'string', 'format': 'date'}},
+                            {'in': 'query', 'name': 'to', 'required': True, 'schema': {'type': 'string', 'format': 'date'}},
+                        ],
+                        'responses': {
+                            '200': {'description': '{"goal": int, "days": [{"on_date", "steps", "goal_met"}]}'},
+                            '400': {'description': 'Invalid query params'},
+                            '401': {'description': 'Unauthorized'},
+                        },
+                    }
+                },
                 '/health': {
                     'get': {
                         'summary': 'Service health',
@@ -381,6 +397,48 @@ def daily_heart_rate(request):
         return JsonResponse({'days': days})
     except (HealthAPIError, HealthConfigurationError) as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=getattr(exc, 'status_code', 503))
+
+
+def daily_steps(request):
+    """GET /api/steps/daily?from=YYYY-MM-DD&to=YYYY-MM-DD (inclusive, max 90 days).
+
+    Returns {"goal": int, "days": [{"on_date", "steps", "goal_met"}]} ascending by date.
+    Days with no provider data are omitted; steps are never defaulted to 0.
+    """
+    from_raw = request.GET.get('from')
+    to_raw = request.GET.get('to')
+    if not from_raw or not to_raw:
+        return JsonResponse(
+            {'ok': False, 'error': 'Query params "from" and "to" are required (YYYY-MM-DD).'},
+            status=400,
+        )
+    try:
+        from_date = datetime.strptime(from_raw, '%Y-%m-%d').date()
+        to_date = datetime.strptime(to_raw, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse(
+            {'ok': False, 'error': 'Invalid date format. Use YYYY-MM-DD for "from" and "to".'},
+            status=400,
+        )
+    if from_date > to_date:
+        return JsonResponse({'ok': False, 'error': '"from" must be on or before "to".'}, status=400)
+    if (to_date - from_date).days + 1 > MAX_DAILY_HEART_RANGE_DAYS:
+        return JsonResponse(
+            {'ok': False, 'error': f'Date range cannot exceed {MAX_DAILY_HEART_RANGE_DAYS} inclusive days.'},
+            status=400,
+        )
+
+    try:
+        rows = get_daily_steps_metrics(start_date=from_date, end_date=to_date)
+    except (HealthAPIError, HealthConfigurationError) as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=getattr(exc, 'status_code', 503))
+
+    goal = _resolve_steps_goal()
+    days = [
+        {'on_date': row['on_date'], 'steps': row['steps'], 'goal_met': row['steps'] >= goal}
+        for row in sorted(rows, key=lambda item: item['on_date'])
+    ]
+    return JsonResponse({'goal': goal, 'days': days})
 
 
 def health_smoke_test(request):
