@@ -1,10 +1,10 @@
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-
+import math
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from fitnick.base.live_api import (
     HealthAPIError,
@@ -29,7 +29,7 @@ def _local_now():
     return datetime.now(LOCAL_TIME_ZONE)
 
 
-DEFAULT_STEPS_GOAL = 12000
+DEFAULT_STEPS_GOAL = 10000
 
 
 def _settings_file_path():
@@ -113,9 +113,37 @@ def _is_scope_permission_error(exc):
         return False
     error_type = str(getattr(exc, 'error_type', '')).lower()
     return exc.status_code == 403 and ('permission' in error_type or 'scope' in str(exc).lower())
+
+
+def _active_end_hour():
+    parsed = _coerce_positive_int(os.getenv('FITNICK_ACTIVE_END_HOUR', '22'))
+    return min(parsed, 24) if parsed else 22
+
+
+def compute_steps_pacing(steps, goal, now):
+    """Return pacing info for reaching `goal` by the configured end hour (local time)."""
+    remaining = max(0, int(goal) - int(steps))
+    if remaining == 0:
+        return {'status': 'reached', 'remaining': 0, 'hours_left': 0.0,
+                'steps_per_hour': 0, 'steps_per_minute': 0.0}
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    seconds_left = (day_start + timedelta(hours=_active_end_hour()) - now).total_seconds()
+    if seconds_left <= 0:
+        return {'status': 'missed', 'remaining': remaining, 'hours_left': 0.0,
+                'steps_per_hour': None, 'steps_per_minute': None}
+    hours_left = seconds_left / 3600
+    return {
+        'status': 'in_progress',
+        'remaining': remaining,
+        'hours_left': round(hours_left, 2),
+        'steps_per_hour': math.ceil(remaining / hours_left),
+        'steps_per_minute': round(remaining / (hours_left * 60), 1),
+    }
+
+
 def index(request):
     goal = _configured_default_steps_goal()
-    today = datetime.today().strftime('%Y-%m-%d')
+    today = _local_now().strftime('%Y-%m-%d')
     errors = []
     steps_this_time = 0
     daily_activity_response = None
@@ -184,46 +212,16 @@ def index(request):
         "recent_steps": recent_steps,
         "latest_sleep": latest_sleep,
         "latest_body_fat": latest_body_fat,
+        "pacing": compute_steps_pacing(steps_this_time, goal, dt),
     }
 
     return render(request, 'index.html', index_context)
 
 
 def get_steps_today(request):
-    status_code = 200
-    error = None
+    """Legacy route; consolidated into the dashboard at '/'."""
+    return redirect('/')
 
-    goal = _configured_default_steps_goal()
-    today = datetime.today().strftime('%Y-%m-%d')
-    try:
-        response = get_daily_activity_summary(today)
-        steps_this_time = int(response.get('summary', {}).get('steps', 0))
-        goal = _resolve_steps_goal(response)
-    except (HealthAPIError, HealthConfigurationError) as exc:
-        steps_this_time = 0
-        error = str(exc)
-        status_code = getattr(exc, 'status_code', 500)
-
-    dt = _local_now()
-    percent = (steps_this_time / goal) * 100 if goal else 0
-    index_context = {
-        "base_date": today,
-        "today": True,
-        "steps": steps_this_time,
-        "time": str(dt),
-        "goal": goal,
-        "percent": percent,
-        "percent_str": str(percent)[:6],
-        "errors": [error] if error else [],
-        "service_mode": 'live' if uses_live_health_api() else 'offline',
-        "provider": get_health_provider(),
-        "identity": None,
-        "recent_steps": [],
-        "latest_sleep": None,
-        "latest_body_fat": None,
-    }
-
-    return render(request, 'index.html', index_context, status=status_code)
 
 
 def healthcheck(request):
@@ -318,7 +316,9 @@ def settings_page(request):
                 _set_steps_goal_override(parsed_goal)
                 message = 'Goal override saved.'
 
-    if uses_live_health_api():
+    # The Google Health API does not expose the user's daily steps goal.
+    provider_goal_supported = get_health_provider() != 'google'
+    if uses_live_health_api() and provider_goal_supported:
         try:
             provider_response = get_daily_activity_summary(today)
             provider_goal = _goal_from_activity_response(provider_response)
@@ -336,6 +336,7 @@ def settings_page(request):
             'service_mode': 'live' if uses_live_health_api() else 'offline',
             'override_goal': override_goal,
             'provider_goal': provider_goal,
+            'provider_goal_supported': provider_goal_supported,
             'provider_goal_error': provider_goal_error,
             'effective_goal': effective_goal,
             'default_goal': _configured_default_steps_goal(),

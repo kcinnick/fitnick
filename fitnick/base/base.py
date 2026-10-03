@@ -9,11 +9,11 @@ from sqlalchemy import create_engine
 
 def _offline_fitbit_response_factory():
     try:
-        default_steps_goal = int(os.getenv('FITNICK_DEFAULT_STEPS_GOAL', '12000'))
+        default_steps_goal = int(os.getenv('FITNICK_DEFAULT_STEPS_GOAL', '10000'))
         if default_steps_goal <= 0:
-            default_steps_goal = 12000
+            default_steps_goal = 10000
     except ValueError:
-        default_steps_goal = 12000
+        default_steps_goal = 10000
 
     def _body_weight_response(base_date=None, end_date=None):
         records = [

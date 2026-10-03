@@ -16,7 +16,7 @@
         <div class="panel-body">
             <p><strong>Effective Goal:</strong> {{ effective_goal }}</p>
             <p><strong>Override Goal:</strong> {% if override_goal %}{{ override_goal }}{% else %}Not set{% endif %}</p>
-            <p><strong>Provider Goal:</strong> {% if provider_goal %}{{ provider_goal }}{% else %}Unavailable{% endif %}</p>
+            <p><strong>Provider Goal:</strong> {% if provider_goal %}{{ provider_goal }}{% elif not provider_goal_supported %}Not exposed by the Google Health API &mdash; set an override below{% else %}Unavailable{% endif %}</p>
             {% if provider_goal_error %}
                 <p class="text-muted">Provider goal lookup error: {{ provider_goal_error }}</p>
             {% endif %}
