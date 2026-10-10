@@ -17,7 +17,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from .views import daily_heart_rate, fitbit_smoke_test, get_steps_today, health_smoke_test, healthcheck, index, openapi_spec, settings_page
+from .views import daily_heart_rate, daily_steps, fitbit_smoke_test, get_steps_today, health_smoke_test, healthcheck, index, openapi_spec, settings_page
 
 urlpatterns = [
     path('admin/', admin.site.urls),
