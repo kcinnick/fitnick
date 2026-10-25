@@ -10,6 +10,7 @@ from fitnick.base.live_api import (
     HealthAPIError,
     HealthConfigurationError,
     MAX_DAILY_HEART_RANGE_DAYS,
+    can_refresh_health_token,
     get_identity_summary,
     get_latest_body_fat_entry,
     get_latest_sleep_session,
@@ -442,15 +443,36 @@ def daily_steps(request):
 
 
 def health_smoke_test(request):
+    provider = get_health_provider()
     try:
         payload = run_smoke_test()
         return JsonResponse(payload)
     except (HealthAPIError, HealthConfigurationError) as exc:
+        diagnostics = {
+            'provider': provider,
+            'offline_mode_enabled': os.getenv('FITNICK_OFFLINE_MODE') == '1',
+            'auto_refresh_enabled': os.getenv('FITNICK_AUTO_REFRESH_TOKENS', '1') == '1',
+            'refresh_configured': can_refresh_health_token(),
+        }
+        if provider == 'google':
+            diagnostics.update({
+                'google_access_token_present': bool(os.getenv('GOOGLE_HEALTH_ACCESS_TOKEN') or os.getenv('HEALTH_ACCESS_TOKEN')),
+                'google_refresh_token_present': bool(os.getenv('GOOGLE_HEALTH_REFRESH_TOKEN')),
+                'google_client_id_present': bool(os.getenv('GOOGLE_HEALTH_CLIENT_ID')),
+                'google_client_secret_present': bool(os.getenv('GOOGLE_HEALTH_CLIENT_SECRET')),
+            })
+        elif provider == 'fitbit':
+            diagnostics.update({
+                'fitbit_access_token_present': bool(os.getenv('FITBIT_ACCESS_TOKEN') or os.getenv('FITBIT_ACCESS_KEY')),
+                'fitbit_refresh_token_present': bool(os.getenv('FITBIT_REFRESH_TOKEN')),
+                'fitbit_auth_header_present': bool(os.getenv('FITBIT_AUTH_HEADER')),
+            })
         return JsonResponse({
             'ok': False,
-            'provider': get_health_provider(),
+            'provider': provider,
             'mode': 'live' if uses_live_health_api() else 'offline',
-            'refresh_configured': False,
+            'refresh_configured': diagnostics['refresh_configured'],
+            'diagnostics': diagnostics,
             'error': str(exc),
         }, status=getattr(exc, 'status_code', 500))
 
