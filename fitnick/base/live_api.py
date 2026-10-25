@@ -10,6 +10,7 @@ GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 FITBIT_TOKEN_URL = 'https://api.fitbit.com/oauth2/token'
 MAX_DAILY_HEART_RANGE_DAYS = 90
 _PROACTIVE_REFRESH_LAST_ATTEMPT = {}
+_LAST_TOKEN_REFRESH_ERROR = {}
 DEFAULT_TIME_ZONE = 'America/New_York'
 
 
@@ -19,6 +20,24 @@ def _local_today():
 
 def _google_data_source_family():
     return os.getenv('GOOGLE_HEALTH_DATA_SOURCE_FAMILY', 'users/me/dataSourceFamilies/all-sources')
+
+
+def _set_last_token_refresh_error(provider, status_code, error_type, message):
+    _LAST_TOKEN_REFRESH_ERROR[provider] = {
+        'status_code': status_code,
+        'error_type': error_type,
+        'message': message,
+    }
+
+
+def _clear_last_token_refresh_error(provider):
+    _LAST_TOKEN_REFRESH_ERROR.pop(provider, None)
+
+
+def get_last_token_refresh_error(provider=None):
+    if provider:
+        return _LAST_TOKEN_REFRESH_ERROR.get(provider)
+    return dict(_LAST_TOKEN_REFRESH_ERROR)
 
 
 class HealthConfigurationError(RuntimeError):
@@ -829,6 +848,7 @@ def _refresh_google_access_token():
     client_id = os.getenv('GOOGLE_HEALTH_CLIENT_ID')
     client_secret = os.getenv('GOOGLE_HEALTH_CLIENT_SECRET')
     if not refresh_token or not client_id or not client_secret:
+        _set_last_token_refresh_error('google', None, 'missing_refresh_credentials', 'Google refresh credentials are incomplete.')
         return None
 
     response = requests.post(
@@ -842,18 +862,30 @@ def _refresh_google_access_token():
         timeout=30,
     )
     if not response.ok:
+        error_type = 'token_refresh_failed'
+        message = response.text[:200]
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                error_type = str(payload.get('error') or error_type)
+                message = str(payload.get('error_description') or payload.get('error') or message)
+        except ValueError:
+            pass
+        _set_last_token_refresh_error('google', response.status_code, error_type, message)
         return None
 
     payload = response.json()
     _set_token_expiry('google', payload)
     access_token = payload.get('access_token')
     if not access_token:
+        _set_last_token_refresh_error('google', response.status_code, 'missing_access_token', 'Token response did not contain an access token.')
         return None
 
     os.environ['GOOGLE_HEALTH_ACCESS_TOKEN'] = access_token
     os.environ['HEALTH_ACCESS_TOKEN'] = access_token
     if payload.get('refresh_token'):
         os.environ['GOOGLE_HEALTH_REFRESH_TOKEN'] = payload['refresh_token']
+    _clear_last_token_refresh_error('google')
     return access_token
 
 
@@ -861,6 +893,7 @@ def _refresh_fitbit_access_token():
     refresh_token = os.getenv('FITBIT_REFRESH_TOKEN')
     auth_header = os.getenv('FITBIT_AUTH_HEADER')
     if not refresh_token or not auth_header:
+        _set_last_token_refresh_error('fitbit', None, 'missing_refresh_credentials', 'Fitbit refresh credentials are incomplete.')
         return None
 
     response = requests.post(
@@ -876,18 +909,30 @@ def _refresh_fitbit_access_token():
         timeout=30,
     )
     if not response.ok:
+        error_type = 'token_refresh_failed'
+        message = response.text[:200]
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                error_type = str(payload.get('errors', [{}])[0].get('errorType', error_type)) if isinstance(payload.get('errors'), list) and payload.get('errors') else error_type
+                message = str(payload.get('errors', [{}])[0].get('message', message)) if isinstance(payload.get('errors'), list) and payload.get('errors') else message
+        except ValueError:
+            pass
+        _set_last_token_refresh_error('fitbit', response.status_code, error_type, message)
         return None
 
     payload = response.json()
     _set_token_expiry('fitbit', payload)
     access_token = payload.get('access_token')
     if not access_token:
+        _set_last_token_refresh_error('fitbit', response.status_code, 'missing_access_token', 'Token response did not contain an access token.')
         return None
 
     os.environ['FITBIT_ACCESS_TOKEN'] = access_token
     os.environ['FITBIT_ACCESS_KEY'] = access_token
     if payload.get('refresh_token'):
         os.environ['FITBIT_REFRESH_TOKEN'] = payload['refresh_token']
+    _clear_last_token_refresh_error('fitbit')
     return access_token
 
 

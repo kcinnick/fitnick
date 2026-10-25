@@ -11,6 +11,7 @@ from fitnick.base.live_api import (
     HealthConfigurationError,
     MAX_DAILY_HEART_RANGE_DAYS,
     can_refresh_health_token,
+    get_last_token_refresh_error,
     get_identity_summary,
     get_latest_body_fat_entry,
     get_latest_sleep_session,
@@ -460,12 +461,14 @@ def health_smoke_test(request):
                 'google_refresh_token_present': bool(os.getenv('GOOGLE_HEALTH_REFRESH_TOKEN')),
                 'google_client_id_present': bool(os.getenv('GOOGLE_HEALTH_CLIENT_ID')),
                 'google_client_secret_present': bool(os.getenv('GOOGLE_HEALTH_CLIENT_SECRET')),
+                'last_refresh_error': get_last_token_refresh_error('google'),
             })
         elif provider == 'fitbit':
             diagnostics.update({
                 'fitbit_access_token_present': bool(os.getenv('FITBIT_ACCESS_TOKEN') or os.getenv('FITBIT_ACCESS_KEY')),
                 'fitbit_refresh_token_present': bool(os.getenv('FITBIT_REFRESH_TOKEN')),
                 'fitbit_auth_header_present': bool(os.getenv('FITBIT_AUTH_HEADER')),
+                'last_refresh_error': get_last_token_refresh_error('fitbit'),
             })
         return JsonResponse({
             'ok': False,
