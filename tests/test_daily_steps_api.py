@@ -105,14 +105,39 @@ def test_live_google_rollup_maps_and_omits_missing(monkeypatch):
 
 def test_live_fitbit_per_day(monkeypatch):
     monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'fitbit')
+    captured = {'path': None}
 
     def fake_get(provider, api_version, path, params=None):
-        if path.endswith('2026-09-10.json'):
-            return {'summary': {'steps': 500}}
-        return {'summary': {}}
+        captured['path'] = path
+        return {
+            'activities-steps': [
+                {'dateTime': '2026-09-10', 'value': '500'},
+                {'dateTime': '2026-09-11', 'value': '0'},
+            ]
+        }
 
     monkeypatch.setattr('fitnick.base.live_api._provider_get', fake_get)
     d = live_api.datetime
     rows = live_api.get_daily_steps_metrics(d(2026, 9, 10).date(), d(2026, 9, 11).date())
-    assert rows == [{'on_date': '2026-09-10', 'steps': 500}]
+    assert rows == [{'on_date': '2026-09-10', 'steps': 500}, {'on_date': '2026-09-11', 'steps': 0}]
+    assert captured['path'] == 'user/-/activities/steps/date/2026-09-10/2026-09-11.json'
+
+
+def test_daily_steps_uses_fitbit_provider_goal(monkeypatch, tmp_path):
+    _patch_goal(monkeypatch, tmp_path, goal=10000)
+    monkeypatch.setattr('fitnick_django.fitnick_django.views.get_health_provider', lambda: 'fitbit')
+    monkeypatch.setattr(
+        'fitnick_django.fitnick_django.views.get_daily_steps_metrics',
+        lambda start_date, end_date: [{'on_date': '2026-09-11', 'steps': 6000}],
+    )
+    monkeypatch.setattr(
+        'fitnick_django.fitnick_django.views.get_daily_activity_summary',
+        lambda activity_date: {'goals': {'steps': 7000}},
+    )
+
+    payload = _json(daily_steps(DummyRequest({'from': '2026-09-11', 'to': '2026-09-11'})))
+    assert payload == {
+        'goal': 7000,
+        'days': [{'on_date': '2026-09-11', 'steps': 6000, 'goal_met': False}],
+    }
 

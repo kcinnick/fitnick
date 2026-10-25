@@ -632,15 +632,22 @@ def get_daily_steps_metrics(start_date, end_date):
         rows.sort(key=lambda item: item['on_date'])
         return rows
     if provider == 'fitbit':
+        payload = _provider_get(
+            provider='fitbit',
+            api_version='1',
+            path=f'user/-/activities/steps/date/{start_date}/{end_date}.json',
+        )
         rows = []
-        current = start_date
-        while current <= end_date:
-            target = current.strftime('%Y-%m-%d')
-            payload = _provider_get(provider='fitbit', api_version='1', path=f'user/-/activities/date/{target}.json')
-            steps = payload.get('summary', {}).get('steps')
-            if steps is not None:
-                rows.append({'on_date': target, 'steps': int(steps)})
-            current += timedelta(days=1)
+        for row in payload.get('activities-steps', []) if isinstance(payload, dict) else []:
+            on_date = row.get('dateTime') if isinstance(row, dict) else None
+            value = row.get('value') if isinstance(row, dict) else None
+            if not on_date or value is None:
+                continue
+            try:
+                rows.append({'on_date': on_date, 'steps': int(value)})
+            except (TypeError, ValueError):
+                continue
+        rows.sort(key=lambda item: item['on_date'])
         return rows
     raise HealthConfigurationError(
         f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'

@@ -32,4 +32,5 @@ urlpatterns = [
     path('health/smoke', health_smoke_test),
     path('fitbit/smoke', fitbit_smoke_test),
     path('api/heart-rate/daily', daily_heart_rate),
+    path('api/steps/daily', daily_steps),
 ]

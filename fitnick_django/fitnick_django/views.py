@@ -435,7 +435,14 @@ def daily_steps(request):
     except (HealthAPIError, HealthConfigurationError) as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=getattr(exc, 'status_code', 503))
 
-    goal = _resolve_steps_goal()
+    activity_response = None
+    if get_health_provider() == 'fitbit':
+        try:
+            activity_response = get_daily_activity_summary(to_date.strftime('%Y-%m-%d'))
+        except (HealthAPIError, HealthConfigurationError):
+            activity_response = None
+
+    goal = _resolve_steps_goal(activity_response)
     days = [
         {'on_date': row['on_date'], 'steps': row['steps'], 'goal_met': row['steps'] >= goal}
         for row in sorted(rows, key=lambda item: item['on_date'])
