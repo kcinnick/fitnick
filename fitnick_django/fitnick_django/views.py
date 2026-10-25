@@ -467,7 +467,7 @@ def _daily_steps_response(request, include_goal=False):
             days.append(row)
     except (HealthAPIError, HealthConfigurationError) as exc:
         return JsonResponse(
-            {'ok': False, 'error': str(exc)},
+            {'ok': False, 'error': 'Health provider request failed.'},
             status=getattr(exc, 'status_code', 503),
         )
     return JsonResponse({'days': days})

@@ -138,8 +138,9 @@ def test_provider_failure_is_not_a_partial_success(
     monkeypatch.setattr(views, 'get_daily_activity_summary', activity)
     response = view(_request(path))
     assert response.status_code == status
-    assert _payload(response)['ok'] is False
-    assert 'days' not in _payload(response)
+    assert _payload(response) == {
+        'ok': False, 'error': 'Health provider request failed.',
+    }
 
 
 @pytest.mark.parametrize('path,view', ENDPOINTS)

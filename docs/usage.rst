@@ -80,8 +80,9 @@ Invalid windows return 400, unauthorized requests return 401 when auth is enable
 and the new activity endpoints reject non-GET methods with 405. Provider errors
 retain their upstream HTTP status; missing configuration returns 503.
 Error bodies have ``{"ok": false, "error": "..."}`` (405 uses Django's standard
-method-not-allowed response). Machine-readable activity schemas and auth metadata
-are available at ``/openapi.json``.
+method-not-allowed response). Activity provider failures use a generic message
+without exposing upstream exception details. Machine-readable activity schemas
+and auth metadata are available at ``/openapi.json``.
 
 Authentication conventions
 --------------------------
