@@ -34,6 +34,15 @@ def _load_env_file():
 _load_env_file()
 
 
+def _default_django_db_path():
+    configured = os.getenv('FITNICK_DJANGO_DB_PATH', '').strip()
+    if configured:
+        return configured
+    if os.getenv('RENDER', '').strip().lower() == 'true':
+        return '/var/data/fitnick/db.sqlite3'
+    return os.path.join(BASE_DIR, 'db.sqlite3')
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
 
@@ -97,7 +106,7 @@ WSGI_APPLICATION = 'fitnick_django.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.getenv('FITNICK_DJANGO_DB_PATH', os.path.join(BASE_DIR, 'db.sqlite3')),
+        'NAME': _default_django_db_path(),
     }
 }
 

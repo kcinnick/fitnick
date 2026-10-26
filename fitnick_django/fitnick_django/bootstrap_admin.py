@@ -15,7 +15,7 @@ def bootstrap_admin_user():
         return {'ok': False, 'action': 'disabled'}
 
     username = (os.getenv('FITNICK_BOOTSTRAP_ADMIN_USERNAME') or '').strip()
-    password = os.getenv('FITNICK_BOOTSTRAP_ADMIN_PASSWORD') or ''
+    password = (os.getenv('FITNICK_BOOTSTRAP_ADMIN_PASSWORD') or '').strip()
     email = (os.getenv('FITNICK_BOOTSTRAP_ADMIN_EMAIL') or '').strip()
     reset_password = _parse_bool(os.getenv('FITNICK_BOOTSTRAP_ADMIN_RESET_PASSWORD'), default=False)
 
@@ -44,22 +44,28 @@ def bootstrap_admin_user():
         return {'ok': True, 'action': 'created', 'username': username}
 
     changed = False
+    changed_reasons = []
     if not getattr(user, 'is_staff', False):
         setattr(user, 'is_staff', True)
         changed = True
+        changed_reasons.append('granted_staff')
     if not getattr(user, 'is_superuser', False):
         setattr(user, 'is_superuser', True)
         changed = True
+        changed_reasons.append('granted_superuser')
     if email and getattr(user, 'email', '') != email:
         setattr(user, 'email', email)
         changed = True
+        changed_reasons.append('updated_email')
     if reset_password:
         user.set_password(password)
         changed = True
+        changed_reasons.append('password_reset')
 
     if changed:
         user.save()
-        print(f'Bootstrap admin user updated: {username}')
+        details = f" ({', '.join(changed_reasons)})" if changed_reasons else ''
+        print(f'Bootstrap admin user updated: {username}{details}')
         return {'ok': True, 'action': 'updated', 'username': username}
 
     print(f'Bootstrap admin user already present: {username}')

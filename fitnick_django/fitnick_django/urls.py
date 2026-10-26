@@ -17,13 +17,14 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from .views import daily_heart_rate, fitbit_smoke_test, get_steps_today, health_smoke_test, healthcheck, index, openapi_spec
+from .views import daily_heart_rate, daily_steps, fitbit_smoke_test, get_steps_today, health_smoke_test, healthcheck, index, openapi_spec, settings_page
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('login', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
     path('logout', auth_views.LogoutView.as_view(), name='logout'),
     path('', index),
+    path('settings', settings_page),
     path('steps/today', get_steps_today),
     path('health', healthcheck),
     path('healthz', healthcheck),
@@ -31,4 +32,5 @@ urlpatterns = [
     path('health/smoke', health_smoke_test),
     path('fitbit/smoke', fitbit_smoke_test),
     path('api/heart-rate/daily', daily_heart_rate),
+    path('api/steps/daily', daily_steps),
 ]
