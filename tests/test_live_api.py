@@ -142,6 +142,41 @@ def test_google_rollup_uses_all_health_data_sources(monkeypatch):
     assert captured['family'] == 'users/me/dataSourceFamilies/all-sources'
 
 
+def test_recent_steps_includes_final_previous_day_after_midnight(monkeypatch):
+    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
+    today = live_api.datetime(2026, 10, 25).date()
+    monkeypatch.setattr('fitnick.base.live_api._local_today', lambda: today)
+    captured = {}
+
+    def fake_rollup(start_date, end_date):
+        captured['range'] = (start_date, end_date)
+        return {
+            'rollupDataPoints': [
+                {
+                    'civilStartTime': {'date': {'year': 2026, 'month': 10, 'day': 24}},
+                    'steps': {'countSum': 10000},
+                },
+                {
+                    'civilStartTime': {'date': {'year': 2026, 'month': 10, 'day': 25}},
+                    'steps': {'countSum': 0},
+                },
+            ]
+        }
+
+    monkeypatch.setattr('fitnick.base.live_api._google_daily_steps_rollup', fake_rollup)
+
+    result = live_api.get_recent_steps(days=2)
+
+    assert captured['range'] == (
+        live_api.datetime(2026, 10, 24).date(),
+        live_api.datetime(2026, 10, 26).date(),
+    )
+    assert result == [
+        {'date': '2026-10-24', 'steps': 10000},
+        {'date': '2026-10-25', 'steps': 0},
+    ]
+
+
 def test_google_body_weight_maps_kilograms_to_provider_rows(monkeypatch):
     monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
 
