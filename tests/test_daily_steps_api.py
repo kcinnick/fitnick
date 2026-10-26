@@ -1,143 +1,200 @@
 import json
+from datetime import date, timedelta
 
 import pytest
+from django.test import RequestFactory
 
-import fitnick.base.live_api as live_api
-from fitnick.base.live_api import HealthAPIError
+from fitnick.base import live_api
+from fitnick_django.fitnick_django import views
 from fitnick_django.fitnick_django.middleware import AccessControlMiddleware
-from fitnick_django.fitnick_django.views import daily_steps
+
 
 pytestmark = pytest.mark.django
+ENDPOINTS = [
+    ('/api/steps/daily', views.daily_steps),
+    ('/api/goals/progress', views.daily_goal_progress),
+]
 
 
-class DummyUser:
-    is_authenticated = False
+def _request(path, query=None, method='get'):
+    if query is None:
+        query = {'from': '2026-10-01', 'to': '2026-10-02'}
+    return getattr(RequestFactory(), method)(
+        path, data=query,
+    )
 
 
-class DummyRequest:
-    def __init__(self, query=None, headers=None):
-        self.path = '/api/steps/daily'
-        self.GET = query or {}
-        self.headers = headers or {}
-        self.user = DummyUser()
+def _payload(response):
+    return json.loads(response.content)
 
 
-def _json(response):
-    return json.loads(response.content.decode('utf-8'))
+@pytest.fixture(autouse=True)
+def isolate_goal_settings(monkeypatch, tmp_path):
+    monkeypatch.setenv(
+        'FITNICK_SETTINGS_FILE', str(tmp_path / 'settings.json'),
+    )
+    monkeypatch.setenv('FITNICK_DEFAULT_STEPS_GOAL', '10000')
 
 
-def _patch_goal(monkeypatch, tmp_path, goal=10000):
-    monkeypatch.setenv('FITNICK_SETTINGS_FILE', str(tmp_path / 's.json'))
-    monkeypatch.setenv('FITNICK_DEFAULT_STEPS_GOAL', str(goal))
+@pytest.mark.parametrize('path,view', ENDPOINTS)
+def test_daily_rows_include_both_bounds(monkeypatch, path, view):
+    calls = []
 
+    def activity(on_date):
+        calls.append(on_date)
+        return {'summary': {'steps': 4500}, 'goals': {'steps': 9000}}
 
-def test_requires_api_key(monkeypatch):
-    monkeypatch.setenv('FITNICK_REQUIRE_AUTH', '1')
-    monkeypatch.setenv('FITNICK_API_KEY', 'secret')
-    middleware = AccessControlMiddleware(daily_steps)
-    q = {'from': '2026-09-11', 'to': '2026-09-11'}
-    assert middleware(DummyRequest(q)).status_code == 401
-    assert middleware(DummyRequest(q, {'X-API-Key': 'nope'})).status_code == 401
-
-
-def test_valid_key_allowed(monkeypatch, tmp_path):
-    _patch_goal(monkeypatch, tmp_path)
-    monkeypatch.setenv('FITNICK_REQUIRE_AUTH', '1')
-    monkeypatch.setenv('FITNICK_API_KEY', 'secret')
-    monkeypatch.setattr('fitnick_django.fitnick_django.views.get_daily_steps_metrics',
-                        lambda start_date, end_date: [])
-    middleware = AccessControlMiddleware(daily_steps)
-    response = middleware(DummyRequest({'from': '2026-09-11', 'to': '2026-09-11'}, {'X-API-Key': 'secret'}))
+    monkeypatch.setattr(views, 'get_daily_activity_summary', activity)
+    response = view(_request(path))
     assert response.status_code == 200
-    assert _json(response) == {'goal': 10000, 'days': []}
-
-
-@pytest.mark.parametrize('query', [
-    {'from': '2026-09-xx', 'to': '2026-09-11'},
-    {'from': '2026-09-12', 'to': '2026-09-11'},
-    {'from': '2026-01-01', 'to': '2026-04-01'},
-    {'to': '2026-09-11'},
-])
-def test_validation_errors(query):
-    assert daily_steps(DummyRequest(query)).status_code == 400
-
-
-def test_maps_sorted_with_goal_met(monkeypatch, tmp_path):
-    _patch_goal(monkeypatch, tmp_path)
-    monkeypatch.setattr('fitnick_django.fitnick_django.views.get_daily_steps_metrics', lambda start_date, end_date: [
-        {'on_date': '2026-09-11', 'steps': 10000},
-        {'on_date': '2026-09-10', 'steps': 4200},
-    ])
-    payload = _json(daily_steps(DummyRequest({'from': '2026-09-10', 'to': '2026-09-11'})))
-    assert payload['days'] == [
-        {'on_date': '2026-09-10', 'steps': 4200, 'goal_met': False},
-        {'on_date': '2026-09-11', 'steps': 10000, 'goal_met': True},
-    ]
-
-
-def test_upstream_failure_is_safe(monkeypatch):
-    def boom(start_date, end_date):
-        raise HealthAPIError(status_code=502, provider='google', error_type='upstream', message='temporary error')
-    monkeypatch.setattr('fitnick_django.fitnick_django.views.get_daily_steps_metrics', boom)
-    response = daily_steps(DummyRequest({'from': '2026-09-11', 'to': '2026-09-11'}))
-    assert response.status_code == 502
-    assert _json(response)['ok'] is False
-
-
-def test_live_google_rollup_maps_and_omits_missing(monkeypatch):
-    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
-    captured = {}
-
-    def fake_rollup(start_date, end_date):
-        captured['end'] = end_date
-        return {'rollupDataPoints': [
-            {'civilStartTime': {'date': {'year': 2026, 'month': 9, 'day': 11}}, 'steps': {'countSum': '8000'}},
-            {'civilStartTime': {'date': {'year': 2026, 'month': 9, 'day': 10}}, 'steps': {'countSum': '3000'}},
-            {'civilStartTime': {'date': {'year': 2026, 'month': 9, 'day': 12}}, 'steps': {}},
-        ]}
-
-    monkeypatch.setattr('fitnick.base.live_api._google_daily_steps_rollup', fake_rollup)
-    d = live_api.datetime
-    rows = live_api.get_daily_steps_metrics(d(2026, 9, 10).date(), d(2026, 9, 12).date())
-    assert rows == [{'on_date': '2026-09-10', 'steps': 3000}, {'on_date': '2026-09-11', 'steps': 8000}]
-    assert captured['end'] == d(2026, 9, 13).date()
-
-
-def test_live_fitbit_per_day(monkeypatch):
-    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'fitbit')
-    captured = {'path': None}
-
-    def fake_get(provider, api_version, path, params=None):
-        captured['path'] = path
-        return {
-            'activities-steps': [
-                {'dateTime': '2026-09-10', 'value': '500'},
-                {'dateTime': '2026-09-11', 'value': '0'},
-            ]
+    assert calls == ['2026-10-01', '2026-10-02']
+    rows = _payload(response)['days']
+    assert [row['on_date'] for row in rows] == calls
+    assert all(row['steps'] == 4500 for row in rows)
+    if view == views.daily_goal_progress:
+        assert rows[0] == {
+            'on_date': '2026-10-01', 'steps': 4500, 'steps_goal': 9000,
+            'remaining_steps': 4500, 'percent': 50.0, 'goal_reached': False,
         }
-
-    monkeypatch.setattr('fitnick.base.live_api._provider_get', fake_get)
-    d = live_api.datetime
-    rows = live_api.get_daily_steps_metrics(d(2026, 9, 10).date(), d(2026, 9, 11).date())
-    assert rows == [{'on_date': '2026-09-10', 'steps': 500}, {'on_date': '2026-09-11', 'steps': 0}]
-    assert captured['path'] == 'user/-/activities/steps/date/2026-09-10/2026-09-11.json'
+    else:
+        assert set(rows[0]) == {'on_date', 'steps'}
 
 
-def test_daily_steps_uses_fitbit_provider_goal(monkeypatch, tmp_path):
-    _patch_goal(monkeypatch, tmp_path, goal=10000)
-    monkeypatch.setattr('fitnick_django.fitnick_django.views.get_health_provider', lambda: 'fitbit')
+@pytest.mark.parametrize('steps,goal,reached,remaining,percent', [
+    (10000, 10000, True, 0, 100.0),
+    (12000, 10000, True, 0, 120.0),
+    (1000, 3000, False, 2000, 33.33),
+])
+def test_goal_override_and_progress(
+    monkeypatch, steps, goal, reached, remaining, percent,
+):
+    views._set_steps_goal_override(goal)
+    monkeypatch.setattr(views, 'get_daily_activity_summary', lambda day: {
+        'summary': {'steps': steps}, 'goals': {'steps': 5000},
+    })
+    response = views.daily_goal_progress(_request('/api/goals/progress'))
+    row = _payload(response)['days'][0]
+    assert row['steps_goal'] == goal
+    assert row['remaining_steps'] == remaining
+    assert row['percent'] == percent
+    assert row['goal_reached'] is reached
+
+
+def test_missing_steps_and_goal_follow_dashboard_defaults(monkeypatch):
+    monkeypatch.setattr(views, 'get_daily_activity_summary', lambda day: {})
+    response = views.daily_goal_progress(_request('/api/goals/progress'))
+    row = _payload(response)['days'][0]
+    assert row['steps'] == 0
+    assert row['steps_goal'] == 10000
+    assert row['goal_reached'] is False
+
+
+@pytest.mark.parametrize('path,view', ENDPOINTS)
+@pytest.mark.parametrize('query', [
+    {}, {'from': '2026-10-01'}, {'to': '2026-10-01'},
+    {'from': '2026-02-30', 'to': '2026-10-01'},
+    {'from': 'invalid', 'to': '2026-10-01'},
+    {'from': '2026-10-02', 'to': '2026-10-01'},
+    {'from': '2026-01-01', 'to': '2026-04-01'},
+])
+def test_invalid_window_does_not_call_provider(monkeypatch, path, view, query):
+    def unexpected(day):
+        pytest.fail('Invalid windows must not reach the health provider')
+
+    monkeypatch.setattr(views, 'get_daily_activity_summary', unexpected)
+    assert view(_request(path, query)).status_code == 400
+
+
+@pytest.mark.parametrize('count', [1, 90])
+def test_allowed_window_lengths(monkeypatch, count):
+    calls = []
     monkeypatch.setattr(
-        'fitnick_django.fitnick_django.views.get_daily_steps_metrics',
-        lambda start_date, end_date: [{'on_date': '2026-09-11', 'steps': 6000}],
+        views, 'get_daily_activity_summary',
+        lambda day: calls.append(day) or {},
     )
-    monkeypatch.setattr(
-        'fitnick_django.fitnick_django.views.get_daily_activity_summary',
-        lambda activity_date: {'goals': {'steps': 7000}},
-    )
+    start = date(2026, 1, 1)
+    response = views.daily_steps(_request('/api/steps/daily', {
+        'from': start.isoformat(),
+        'to': (start + timedelta(days=count - 1)).isoformat(),
+    }))
+    assert response.status_code == 200
+    assert len(_payload(response)['days']) == count
+    assert len(calls) == count
 
-    payload = _json(daily_steps(DummyRequest({'from': '2026-09-11', 'to': '2026-09-11'})))
-    assert payload == {
-        'goal': 7000,
-        'days': [{'on_date': '2026-09-11', 'steps': 6000, 'goal_met': False}],
+
+@pytest.mark.parametrize('path,view', ENDPOINTS)
+@pytest.mark.parametrize('error,status', [
+    (live_api.HealthAPIError(502, 'google', 'upstream', 'Unavailable'), 502),
+    (live_api.HealthConfigurationError('Not configured'), 503),
+])
+def test_provider_failure_is_not_a_partial_success(
+    monkeypatch, path, view, error, status,
+):
+    def activity(day):
+        if day == '2026-10-02':
+            raise error
+        return {'summary': {'steps': 1}}
+
+    monkeypatch.setattr(views, 'get_daily_activity_summary', activity)
+    response = view(_request(path))
+    assert response.status_code == status
+    assert _payload(response) == {
+        'ok': False, 'error': 'Health provider request failed.',
     }
 
+
+@pytest.mark.parametrize('path,view', ENDPOINTS)
+@pytest.mark.parametrize('key,status', [
+    (None, 401), ('wrong-key', 401), ('test-key', 200),
+])
+def test_api_key_auth(monkeypatch, path, view, key, status):
+    monkeypatch.setenv('FITNICK_REQUIRE_AUTH', '1')
+    monkeypatch.setenv('FITNICK_API_KEY', 'test-key')
+    monkeypatch.delenv('FITNICK_AUTH_EXEMPT_PATHS', raising=False)
+    monkeypatch.delenv('FITNICK_BASIC_AUTH_USER', raising=False)
+    monkeypatch.delenv('FITNICK_BASIC_AUTH_PASS', raising=False)
+    monkeypatch.setattr(views, 'get_daily_activity_summary', lambda day: {})
+    request = _request(path)
+    if key:
+        request.META['HTTP_X_API_KEY'] = key
+    assert AccessControlMiddleware(view)(request).status_code == status
+
+
+@pytest.mark.parametrize('path,view', ENDPOINTS)
+def test_only_get_supported(path, view):
+    assert view(_request(path, method='post')).status_code == 405
+
+
+@pytest.mark.parametrize('provider', ['google', 'fitbit'])
+def test_steps_use_live_provider_mapping(monkeypatch, provider):
+    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', provider)
+    if provider == 'google':
+        def post(**kwargs):
+            assert kwargs['path'] == (
+                'users/me/dataTypes/steps/dataPoints:dailyRollUp'
+            )
+            assert kwargs['payload']['range']['end']['date']['day'] == 2
+            return {'rollupDataPoints': [{'steps': {'countSum': '1234'}}]}
+        monkeypatch.setattr(live_api, '_provider_post', post)
+    else:
+        def get(**kwargs):
+            assert kwargs['path'] == 'user/-/activities/date/2026-10-01.json'
+            return {'summary': {'steps': 1234}}
+        monkeypatch.setattr(live_api, '_provider_get', get)
+    response = views.daily_steps(_request('/api/steps/daily', {
+        'from': '2026-10-01', 'to': '2026-10-01',
+    }))
+    assert _payload(response) == {
+        'days': [{'on_date': '2026-10-01', 'steps': 1234}],
+    }
+
+
+@pytest.mark.parametrize('path,view', ENDPOINTS)
+def test_openapi_contract(path, view):
+    spec = _payload(views.openapi_spec(_request('/openapi.json')))
+    operation = spec['paths'][path]['get']
+    assert operation['security'] == [{'ApiKeyAuth': []}]
+    assert [p['name'] for p in operation['parameters']] == ['from', 'to']
+    content = operation['responses']['200']['content']['application/json']
+    schema = content['schema']
+    assert 'on_date' in schema['properties']['days']['items']['required']

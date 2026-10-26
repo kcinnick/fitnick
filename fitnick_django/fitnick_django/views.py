@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 import math
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_GET
 
 from fitnick.base.live_api import (
     HealthAPIError,
@@ -17,7 +18,7 @@ from fitnick.base.live_api import (
     get_latest_sleep_session,
     get_recent_steps,
     get_daily_heart_rate_metrics,
-    get_daily_steps_metrics,
+    get_daily_sleep_metrics,
     get_health_provider,
     get_daily_activity_summary,
     run_smoke_test,
@@ -300,6 +301,9 @@ def openapi_spec(request):
                         },
                     }
                 },
+                '/api/sleep/daily': _daily_sleep_spec(),
+                '/api/steps/daily': _daily_activity_spec(include_goal=False),
+                '/api/goals/progress': _daily_activity_spec(include_goal=True),
             },
             'components': {
                 'securitySchemes': {
@@ -312,6 +316,102 @@ def openapi_spec(request):
             },
         }
     )
+
+
+def _daily_activity_spec(include_goal):
+    properties = {
+        'on_date': {'type': 'string', 'format': 'date'},
+        'steps': {'type': 'integer', 'minimum': 0},
+    }
+    if include_goal:
+        properties.update({
+            'steps_goal': {'type': 'integer', 'minimum': 1},
+            'remaining_steps': {'type': 'integer', 'minimum': 0},
+            'percent': {'type': 'number', 'minimum': 0},
+            'goal_reached': {'type': 'boolean'},
+        })
+    return {
+        'get': {
+            'summary': 'Daily steps goal progress' if include_goal else 'Daily steps',
+            'security': [{'ApiKeyAuth': []}],
+            'parameters': [
+                {
+                    'in': 'query', 'name': name, 'required': True,
+                    'description': 'Inclusive civil date; maximum 90 days.',
+                    'schema': {'type': 'string', 'format': 'date'},
+                }
+                for name in ('from', 'to')
+            ],
+            'responses': {
+                '200': {
+                    'description': 'Daily rows in ascending date order',
+                    'content': {'application/json': {'schema': {
+                        'type': 'object',
+                        'required': ['days'],
+                        'properties': {'days': {
+                            'type': 'array',
+                            'items': {
+                                'type': 'object',
+                                'required': list(properties),
+                                'properties': properties,
+                            },
+                        }},
+                    }}},
+                },
+                '400': {'description': 'Invalid window (maximum 90 days)'},
+                '401': {'description': 'Unauthorized when auth is enabled'},
+                '405': {'description': 'Only GET is supported'},
+                '502': {'description': 'Upstream health provider failure'},
+                '503': {'description': 'Health provider is not configured'},
+            },
+        },
+    }
+
+
+def _daily_sleep_spec():
+    return {
+        'get': {
+            'summary': 'Daily sleep metrics',
+            'security': [{'ApiKeyAuth': []}],
+            'parameters': [
+                {
+                    'in': 'query', 'name': name, 'required': True,
+                    'description': 'Inclusive civil date; maximum 90 days.',
+                    'schema': {'type': 'string', 'format': 'date'},
+                }
+                for name in ('from', 'to')
+            ],
+            'responses': {
+                '200': {
+                    'description': 'Daily sleep rows in ascending date order',
+                    'content': {'application/json': {'schema': {
+                        'type': 'object',
+                        'required': ['days'],
+                        'properties': {
+                            'days': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'required': ['on_date', 'sleep_minutes', 'minutes_asleep', 'minutes_awake'],
+                                    'properties': {
+                                        'on_date': {'type': 'string', 'format': 'date'},
+                                        'sleep_minutes': {'type': ['integer', 'null'], 'minimum': 0},
+                                        'minutes_asleep': {'type': ['integer', 'null'], 'minimum': 0},
+                                        'minutes_awake': {'type': ['integer', 'null'], 'minimum': 0},
+                                    },
+                                },
+                            },
+                        },
+                    }}},
+                },
+                '400': {'description': 'Invalid window (maximum 90 days)'},
+                '401': {'description': 'Unauthorized when auth is enabled'},
+                '405': {'description': 'Only GET is supported'},
+                '502': {'description': 'Upstream health provider failure'},
+                '503': {'description': 'Health provider is not configured'},
+            },
+        },
+    }
 
 
 def settings_page(request):
@@ -364,7 +464,7 @@ def settings_page(request):
     )
 
 
-def daily_heart_rate(request):
+def _daily_date_window(request):
     from_raw = request.GET.get('from')
     to_raw = request.GET.get('to')
     if not from_raw or not to_raw:
@@ -394,6 +494,14 @@ def daily_heart_rate(request):
             status=400,
         )
 
+    return from_date, to_date
+
+
+def daily_heart_rate(request):
+    window = _daily_date_window(request)
+    if isinstance(window, JsonResponse):
+        return window
+    from_date, to_date = window
     try:
         days = get_daily_heart_rate_metrics(start_date=from_date, end_date=to_date)
         return JsonResponse({'days': days})
@@ -401,53 +509,56 @@ def daily_heart_rate(request):
         return JsonResponse({'ok': False, 'error': str(exc)}, status=getattr(exc, 'status_code', 503))
 
 
-def daily_steps(request):
-    """GET /api/steps/daily?from=YYYY-MM-DD&to=YYYY-MM-DD (inclusive, max 90 days).
-
-    Returns {"goal": int, "days": [{"on_date", "steps", "goal_met"}]} ascending by date.
-    Days with no provider data are omitted; steps are never defaulted to 0.
-    """
-    from_raw = request.GET.get('from')
-    to_raw = request.GET.get('to')
-    if not from_raw or not to_raw:
-        return JsonResponse(
-            {'ok': False, 'error': 'Query params "from" and "to" are required (YYYY-MM-DD).'},
-            status=400,
-        )
+@require_GET
+def daily_sleep(request):
+    window = _daily_date_window(request)
+    if isinstance(window, JsonResponse):
+        return window
+    from_date, to_date = window
     try:
-        from_date = datetime.strptime(from_raw, '%Y-%m-%d').date()
-        to_date = datetime.strptime(to_raw, '%Y-%m-%d').date()
-    except ValueError:
-        return JsonResponse(
-            {'ok': False, 'error': 'Invalid date format. Use YYYY-MM-DD for "from" and "to".'},
-            status=400,
-        )
-    if from_date > to_date:
-        return JsonResponse({'ok': False, 'error': '"from" must be on or before "to".'}, status=400)
-    if (to_date - from_date).days + 1 > MAX_DAILY_HEART_RANGE_DAYS:
-        return JsonResponse(
-            {'ok': False, 'error': f'Date range cannot exceed {MAX_DAILY_HEART_RANGE_DAYS} inclusive days.'},
-            status=400,
-        )
-
-    try:
-        rows = get_daily_steps_metrics(start_date=from_date, end_date=to_date)
+        days = get_daily_sleep_metrics(start_date=from_date, end_date=to_date)
+        return JsonResponse({'days': days})
     except (HealthAPIError, HealthConfigurationError) as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=getattr(exc, 'status_code', 503))
 
-    activity_response = None
-    if get_health_provider() == 'fitbit':
-        try:
-            activity_response = get_daily_activity_summary(to_date.strftime('%Y-%m-%d'))
-        except (HealthAPIError, HealthConfigurationError):
-            activity_response = None
 
-    goal = _resolve_steps_goal(activity_response)
-    days = [
-        {'on_date': row['on_date'], 'steps': row['steps'], 'goal_met': row['steps'] >= goal}
-        for row in sorted(rows, key=lambda item: item['on_date'])
-    ]
-    return JsonResponse({'goal': goal, 'days': days})
+def _daily_steps_response(request, include_goal=False):
+    window = _daily_date_window(request)
+    if isinstance(window, JsonResponse):
+        return window
+    from_date, to_date = window
+    days = []
+    try:
+        for offset in range((to_date - from_date).days + 1):
+            on_date = (from_date + timedelta(days=offset)).isoformat()
+            activity = get_daily_activity_summary(on_date)
+            steps = int(activity.get('summary', {}).get('steps', 0))
+            row = {'on_date': on_date, 'steps': steps}
+            if include_goal:
+                goal = _resolve_steps_goal(activity)
+                row.update({
+                    'steps_goal': goal,
+                    'remaining_steps': max(0, goal - steps),
+                    'percent': round(steps / goal * 100, 2),
+                    'goal_reached': steps >= goal,
+                })
+            days.append(row)
+    except (HealthAPIError, HealthConfigurationError) as exc:
+        return JsonResponse(
+            {'ok': False, 'error': 'Health provider request failed.'},
+            status=getattr(exc, 'status_code', 503),
+        )
+    return JsonResponse({'days': days})
+
+
+@require_GET
+def daily_steps(request):
+    return _daily_steps_response(request)
+
+
+@require_GET
+def daily_goal_progress(request):
+    return _daily_steps_response(request, include_goal=True)
 
 
 def health_smoke_test(request):
