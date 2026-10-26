@@ -10,11 +10,14 @@ from fitnick.base.live_api import (
     HealthAPIError,
     HealthConfigurationError,
     MAX_DAILY_HEART_RANGE_DAYS,
+    can_refresh_health_token,
+    get_last_token_refresh_error,
     get_identity_summary,
     get_latest_body_fat_entry,
     get_latest_sleep_session,
     get_recent_steps,
     get_daily_heart_rate_metrics,
+    get_daily_steps_metrics,
     get_health_provider,
     get_daily_activity_summary,
     run_smoke_test,
@@ -245,6 +248,21 @@ def openapi_spec(request):
                 'version': __version__,
             },
             'paths': {
+                '/api/steps/daily': {
+                    'get': {
+                        'summary': 'Daily step totals and goal status in an inclusive date window (max 90 days)',
+                        'security': [{'ApiKeyAuth': []}],
+                        'parameters': [
+                            {'in': 'query', 'name': 'from', 'required': True, 'schema': {'type': 'string', 'format': 'date'}},
+                            {'in': 'query', 'name': 'to', 'required': True, 'schema': {'type': 'string', 'format': 'date'}},
+                        ],
+                        'responses': {
+                            '200': {'description': '{"goal": int, "days": [{"on_date", "steps", "goal_met"}]}'},
+                            '400': {'description': 'Invalid query params'},
+                            '401': {'description': 'Unauthorized'},
+                        },
+                    }
+                },
                 '/health': {
                     'get': {
                         'summary': 'Service health',
@@ -383,16 +401,88 @@ def daily_heart_rate(request):
         return JsonResponse({'ok': False, 'error': str(exc)}, status=getattr(exc, 'status_code', 503))
 
 
+def daily_steps(request):
+    """GET /api/steps/daily?from=YYYY-MM-DD&to=YYYY-MM-DD (inclusive, max 90 days).
+
+    Returns {"goal": int, "days": [{"on_date", "steps", "goal_met"}]} ascending by date.
+    Days with no provider data are omitted; steps are never defaulted to 0.
+    """
+    from_raw = request.GET.get('from')
+    to_raw = request.GET.get('to')
+    if not from_raw or not to_raw:
+        return JsonResponse(
+            {'ok': False, 'error': 'Query params "from" and "to" are required (YYYY-MM-DD).'},
+            status=400,
+        )
+    try:
+        from_date = datetime.strptime(from_raw, '%Y-%m-%d').date()
+        to_date = datetime.strptime(to_raw, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse(
+            {'ok': False, 'error': 'Invalid date format. Use YYYY-MM-DD for "from" and "to".'},
+            status=400,
+        )
+    if from_date > to_date:
+        return JsonResponse({'ok': False, 'error': '"from" must be on or before "to".'}, status=400)
+    if (to_date - from_date).days + 1 > MAX_DAILY_HEART_RANGE_DAYS:
+        return JsonResponse(
+            {'ok': False, 'error': f'Date range cannot exceed {MAX_DAILY_HEART_RANGE_DAYS} inclusive days.'},
+            status=400,
+        )
+
+    try:
+        rows = get_daily_steps_metrics(start_date=from_date, end_date=to_date)
+    except (HealthAPIError, HealthConfigurationError) as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=getattr(exc, 'status_code', 503))
+
+    activity_response = None
+    if get_health_provider() == 'fitbit':
+        try:
+            activity_response = get_daily_activity_summary(to_date.strftime('%Y-%m-%d'))
+        except (HealthAPIError, HealthConfigurationError):
+            activity_response = None
+
+    goal = _resolve_steps_goal(activity_response)
+    days = [
+        {'on_date': row['on_date'], 'steps': row['steps'], 'goal_met': row['steps'] >= goal}
+        for row in sorted(rows, key=lambda item: item['on_date'])
+    ]
+    return JsonResponse({'goal': goal, 'days': days})
+
+
 def health_smoke_test(request):
+    provider = get_health_provider()
     try:
         payload = run_smoke_test()
         return JsonResponse(payload)
     except (HealthAPIError, HealthConfigurationError) as exc:
+        diagnostics = {
+            'provider': provider,
+            'offline_mode_enabled': os.getenv('FITNICK_OFFLINE_MODE') == '1',
+            'auto_refresh_enabled': os.getenv('FITNICK_AUTO_REFRESH_TOKENS', '1') == '1',
+            'refresh_configured': can_refresh_health_token(),
+        }
+        if provider == 'google':
+            diagnostics.update({
+                'google_access_token_present': bool(os.getenv('GOOGLE_HEALTH_ACCESS_TOKEN') or os.getenv('HEALTH_ACCESS_TOKEN')),
+                'google_refresh_token_present': bool(os.getenv('GOOGLE_HEALTH_REFRESH_TOKEN')),
+                'google_client_id_present': bool(os.getenv('GOOGLE_HEALTH_CLIENT_ID')),
+                'google_client_secret_present': bool(os.getenv('GOOGLE_HEALTH_CLIENT_SECRET')),
+                'last_refresh_error': get_last_token_refresh_error('google'),
+            })
+        elif provider == 'fitbit':
+            diagnostics.update({
+                'fitbit_access_token_present': bool(os.getenv('FITBIT_ACCESS_TOKEN') or os.getenv('FITBIT_ACCESS_KEY')),
+                'fitbit_refresh_token_present': bool(os.getenv('FITBIT_REFRESH_TOKEN')),
+                'fitbit_auth_header_present': bool(os.getenv('FITBIT_AUTH_HEADER')),
+                'last_refresh_error': get_last_token_refresh_error('fitbit'),
+            })
         return JsonResponse({
             'ok': False,
-            'provider': get_health_provider(),
+            'provider': provider,
             'mode': 'live' if uses_live_health_api() else 'offline',
-            'refresh_configured': False,
+            'refresh_configured': diagnostics['refresh_configured'],
+            'diagnostics': diagnostics,
             'error': str(exc),
         }, status=getattr(exc, 'status_code', 500))
 
