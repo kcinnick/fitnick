@@ -18,6 +18,7 @@ from fitnick.base.live_api import (
     get_latest_sleep_session,
     get_recent_steps,
     get_daily_heart_rate_metrics,
+    get_daily_sleep_metrics,
     get_health_provider,
     get_daily_activity_summary,
     run_smoke_test,
@@ -300,6 +301,7 @@ def openapi_spec(request):
                         },
                     }
                 },
+                '/api/sleep/daily': _daily_sleep_spec(),
                 '/api/steps/daily': _daily_activity_spec(include_goal=False),
                 '/api/goals/progress': _daily_activity_spec(include_goal=True),
             },
@@ -354,6 +356,52 @@ def _daily_activity_spec(include_goal):
                                 'properties': properties,
                             },
                         }},
+                    }}},
+                },
+                '400': {'description': 'Invalid window (maximum 90 days)'},
+                '401': {'description': 'Unauthorized when auth is enabled'},
+                '405': {'description': 'Only GET is supported'},
+                '502': {'description': 'Upstream health provider failure'},
+                '503': {'description': 'Health provider is not configured'},
+            },
+        },
+    }
+
+
+def _daily_sleep_spec():
+    return {
+        'get': {
+            'summary': 'Daily sleep metrics',
+            'security': [{'ApiKeyAuth': []}],
+            'parameters': [
+                {
+                    'in': 'query', 'name': name, 'required': True,
+                    'description': 'Inclusive civil date; maximum 90 days.',
+                    'schema': {'type': 'string', 'format': 'date'},
+                }
+                for name in ('from', 'to')
+            ],
+            'responses': {
+                '200': {
+                    'description': 'Daily sleep rows in ascending date order',
+                    'content': {'application/json': {'schema': {
+                        'type': 'object',
+                        'required': ['days'],
+                        'properties': {
+                            'days': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'required': ['on_date', 'sleep_minutes', 'minutes_asleep', 'minutes_awake'],
+                                    'properties': {
+                                        'on_date': {'type': 'string', 'format': 'date'},
+                                        'sleep_minutes': {'type': ['integer', 'null'], 'minimum': 0},
+                                        'minutes_asleep': {'type': ['integer', 'null'], 'minimum': 0},
+                                        'minutes_awake': {'type': ['integer', 'null'], 'minimum': 0},
+                                    },
+                                },
+                            },
+                        },
                     }}},
                 },
                 '400': {'description': 'Invalid window (maximum 90 days)'},
@@ -456,6 +504,19 @@ def daily_heart_rate(request):
     from_date, to_date = window
     try:
         days = get_daily_heart_rate_metrics(start_date=from_date, end_date=to_date)
+        return JsonResponse({'days': days})
+    except (HealthAPIError, HealthConfigurationError) as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=getattr(exc, 'status_code', 503))
+
+
+@require_GET
+def daily_sleep(request):
+    window = _daily_date_window(request)
+    if isinstance(window, JsonResponse):
+        return window
+    from_date, to_date = window
+    try:
+        days = get_daily_sleep_metrics(start_date=from_date, end_date=to_date)
         return JsonResponse({'days': days})
     except (HealthAPIError, HealthConfigurationError) as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=getattr(exc, 'status_code', 503))

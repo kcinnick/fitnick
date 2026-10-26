@@ -26,7 +26,7 @@ Priorities and ownership
    bCounter's daily export contract must be confirmed before implementing them.
 
 The contracts below are implemented in Fitnick. No scheduler, sibling-service
-changes, historical sleep export, or cross-service dashboard is installed here.
+changes, or cross-service dashboard is installed here.
 Sibling repositories were not accessible during this implementation; their
 server-side auth and ingestion contracts still need confirmation.
 
@@ -76,6 +76,10 @@ decimal places and may exceed 100. ``goal_reached`` includes exact equality.
 Unavailable heart fields are ``null``; days with no heart metrics are omitted.
 Google currently supplies resting HR/HRV only.
 
+``GET /api/sleep/daily`` uses the same window and returns ``on_date``,
+``sleep_minutes``, ``minutes_asleep`` and ``minutes_awake`` in ``days``. Missing
+sleep fields are ``null``; days with no sleep metrics are omitted.
+
 Invalid windows return 400, unauthorized requests return 401 when auth is enabled,
 and the new activity endpoints reject non-GET methods with 405. Provider errors
 retain their upstream HTTP status; missing configuration returns 503.
@@ -120,8 +124,9 @@ and timezone. A proposed version-1 normalized row is::
     }
 
 This is a consumer-side proposal, not another Fitnick endpoint. Preserve missing
-heart/sleep values as ``null`` rather than zero. Daily sleep needs its own export
-contract; the existing latest-sleep read is not a historical daily series.
+heart/sleep values as ``null`` rather than zero. Use ``/api/sleep/daily`` for
+historical sleep series; the dashboard latest-sleep read remains a point-in-time
+summary.
 
 Schedule ingestion in nsorchestrator after local midnight, re-reading the last
 seven civil days to capture late provider updates. Fetch goal-progress once

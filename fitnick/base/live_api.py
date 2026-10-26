@@ -654,6 +654,113 @@ def get_daily_steps_metrics(start_date, end_date):
     )
 
 
+def _accumulate_sleep_row(rows_by_date, on_date, minutes_asleep, minutes_awake, sleep_minutes):
+    entry = rows_by_date.setdefault(
+        on_date,
+        {
+            'on_date': on_date,
+            'sleep_minutes': None,
+            'minutes_asleep': None,
+            'minutes_awake': None,
+        },
+    )
+    if minutes_asleep is not None:
+        entry['minutes_asleep'] = (entry['minutes_asleep'] or 0) + minutes_asleep
+    if minutes_awake is not None:
+        entry['minutes_awake'] = (entry['minutes_awake'] or 0) + minutes_awake
+    if sleep_minutes is not None:
+        entry['sleep_minutes'] = (entry['sleep_minutes'] or 0) + sleep_minutes
+
+
+def _finalize_sleep_rows(rows_by_date):
+    rows = []
+    for row in rows_by_date.values():
+        if row['sleep_minutes'] is None and (row['minutes_asleep'] is not None or row['minutes_awake'] is not None):
+            row['sleep_minutes'] = (row['minutes_asleep'] or 0) + (row['minutes_awake'] or 0)
+        if row['sleep_minutes'] is None and row['minutes_asleep'] is None and row['minutes_awake'] is None:
+            continue
+        rows.append(row)
+    rows.sort(key=lambda item: item['on_date'])
+    return rows
+
+
+def _google_daily_sleep_metrics(start_date, end_date):
+    start_str = start_date.strftime('%Y-%m-%d')
+    end_str = end_date.strftime('%Y-%m-%d')
+    payload = _provider_get(
+        provider='google',
+        api_version='v4',
+        path='users/me/dataTypes/sleep/dataPoints:reconcile',
+        params={
+            'dataSourceFamily': _google_data_source_family(),
+            'filter': (
+                f'sleep.interval.civil_end_time >= "{start_str}" '
+                f'and sleep.interval.civil_end_time <= "{end_str}"'
+            ),
+        },
+    )
+    rows_by_date = {}
+    for row in payload.get('dataPoints', []) if isinstance(payload, dict) else []:
+        sleep = row.get('sleep', {}) if isinstance(row, dict) else {}
+        interval = sleep.get('interval', {}) if isinstance(sleep, dict) else {}
+        on_date = _google_date_to_iso(interval.get('civilEndTime', {}).get('date'))
+        if not on_date:
+            end_time = interval.get('endTime') if isinstance(interval, dict) else ''
+            on_date = end_time[:10] if isinstance(end_time, str) and len(end_time) >= 10 else None
+        parsed = _coerce_iso_date(on_date)
+        if parsed is None or parsed < start_date or parsed > end_date:
+            continue
+
+        summary = sleep.get('summary', {}) if isinstance(sleep, dict) else {}
+        minutes_asleep = _coerce_int(summary.get('minutesAsleep'))
+        minutes_awake = _coerce_int(summary.get('minutesAwake'))
+        sleep_minutes = None
+        if minutes_asleep is not None or minutes_awake is not None:
+            sleep_minutes = (minutes_asleep or 0) + (minutes_awake or 0)
+        else:
+            duration = _sleep_duration_minutes(row)
+            sleep_minutes = duration if duration > 0 else None
+
+        _accumulate_sleep_row(rows_by_date, on_date, minutes_asleep, minutes_awake, sleep_minutes)
+    return _finalize_sleep_rows(rows_by_date)
+
+
+def _fitbit_daily_sleep_metrics(start_date, end_date):
+    payload = _provider_get(
+        provider='fitbit',
+        api_version='1.2',
+        path=f'user/-/sleep/date/{start_date}/{end_date}.json',
+    )
+    rows_by_date = {}
+    for row in payload.get('sleep', []) if isinstance(payload, dict) else []:
+        if not isinstance(row, dict):
+            continue
+        on_date = row.get('dateOfSleep')
+        parsed = _coerce_iso_date(on_date)
+        if parsed is None or parsed < start_date or parsed > end_date:
+            continue
+
+        minutes_asleep = _coerce_int(row.get('minutesAsleep'))
+        minutes_awake = _coerce_int(row.get('minutesAwake'))
+        sleep_minutes = _coerce_int(row.get('timeInBed'))
+        if sleep_minutes is None and (minutes_asleep is not None or minutes_awake is not None):
+            sleep_minutes = (minutes_asleep or 0) + (minutes_awake or 0)
+
+        _accumulate_sleep_row(rows_by_date, on_date, minutes_asleep, minutes_awake, sleep_minutes)
+    return _finalize_sleep_rows(rows_by_date)
+
+
+def get_daily_sleep_metrics(start_date, end_date):
+    provider = get_health_provider()
+    if provider == 'google':
+        return _google_daily_sleep_metrics(start_date=start_date, end_date=end_date)
+    if provider == 'fitbit':
+        return _fitbit_daily_sleep_metrics(start_date=start_date, end_date=end_date)
+    raise HealthConfigurationError(
+        f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'
+    )
+
+
 def _parse_iso_datetime(value):
     if not value:
         return None
