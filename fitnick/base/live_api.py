@@ -10,6 +10,7 @@ GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 FITBIT_TOKEN_URL = 'https://api.fitbit.com/oauth2/token'
 MAX_DAILY_HEART_RANGE_DAYS = 90
 _PROACTIVE_REFRESH_LAST_ATTEMPT = {}
+_LAST_TOKEN_REFRESH_ERROR = {}
 DEFAULT_TIME_ZONE = 'America/New_York'
 
 
@@ -19,6 +20,24 @@ def _local_today():
 
 def _google_data_source_family():
     return os.getenv('GOOGLE_HEALTH_DATA_SOURCE_FAMILY', 'users/me/dataSourceFamilies/all-sources')
+
+
+def _set_last_token_refresh_error(provider, status_code, error_type, message):
+    _LAST_TOKEN_REFRESH_ERROR[provider] = {
+        'status_code': status_code,
+        'error_type': error_type,
+        'message': message,
+    }
+
+
+def _clear_last_token_refresh_error(provider):
+    _LAST_TOKEN_REFRESH_ERROR.pop(provider, None)
+
+
+def get_last_token_refresh_error(provider=None):
+    if provider:
+        return _LAST_TOKEN_REFRESH_ERROR.get(provider)
+    return dict(_LAST_TOKEN_REFRESH_ERROR)
 
 
 class HealthConfigurationError(RuntimeError):
@@ -590,6 +609,158 @@ def get_daily_activity_summary(activity_date):
     )
 
 
+def get_daily_steps_metrics(start_date, end_date):
+    """Daily step totals for an inclusive date window, ascending by date.
+
+    Days without data from the provider are omitted (never reported as 0).
+    """
+    provider = get_health_provider()
+    if provider == 'google':
+        payload = _google_daily_steps_rollup(start_date=start_date, end_date=end_date + timedelta(days=1))
+        rows = []
+        for row in payload.get('rollupDataPoints', []):
+            civil_start = row.get('civilStartTime', {}).get('date', {})
+            count = row.get('steps', {}).get('countSum')
+            if not civil_start or count is None:
+                continue
+            try:
+                on_date = f"{int(civil_start['year']):04d}-{int(civil_start['month']):02d}-{int(civil_start['day']):02d}"
+                rows.append({'on_date': on_date, 'steps': int(count)})
+            except (KeyError, TypeError, ValueError):
+                continue
+        rows = [r for r in rows if start_date.isoformat() <= r['on_date'] <= end_date.isoformat()]
+        rows.sort(key=lambda item: item['on_date'])
+        return rows
+    if provider == 'fitbit':
+        payload = _provider_get(
+            provider='fitbit',
+            api_version='1',
+            path=f'user/-/activities/steps/date/{start_date}/{end_date}.json',
+        )
+        rows = []
+        for row in payload.get('activities-steps', []) if isinstance(payload, dict) else []:
+            on_date = row.get('dateTime') if isinstance(row, dict) else None
+            value = row.get('value') if isinstance(row, dict) else None
+            if not on_date or value is None:
+                continue
+            try:
+                rows.append({'on_date': on_date, 'steps': int(value)})
+            except (TypeError, ValueError):
+                continue
+        rows.sort(key=lambda item: item['on_date'])
+        return rows
+    raise HealthConfigurationError(
+        f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'
+    )
+
+
+def _accumulate_sleep_row(rows_by_date, on_date, minutes_asleep, minutes_awake, sleep_minutes):
+    entry = rows_by_date.setdefault(
+        on_date,
+        {
+            'on_date': on_date,
+            'sleep_minutes': None,
+            'minutes_asleep': None,
+            'minutes_awake': None,
+        },
+    )
+    if minutes_asleep is not None:
+        entry['minutes_asleep'] = (entry['minutes_asleep'] or 0) + minutes_asleep
+    if minutes_awake is not None:
+        entry['minutes_awake'] = (entry['minutes_awake'] or 0) + minutes_awake
+    if sleep_minutes is not None:
+        entry['sleep_minutes'] = (entry['sleep_minutes'] or 0) + sleep_minutes
+
+
+def _finalize_sleep_rows(rows_by_date):
+    rows = []
+    for row in rows_by_date.values():
+        if row['sleep_minutes'] is None and (row['minutes_asleep'] is not None or row['minutes_awake'] is not None):
+            row['sleep_minutes'] = (row['minutes_asleep'] or 0) + (row['minutes_awake'] or 0)
+        if row['sleep_minutes'] is None and row['minutes_asleep'] is None and row['minutes_awake'] is None:
+            continue
+        rows.append(row)
+    rows.sort(key=lambda item: item['on_date'])
+    return rows
+
+
+def _google_daily_sleep_metrics(start_date, end_date):
+    start_str = start_date.strftime('%Y-%m-%d')
+    end_str = end_date.strftime('%Y-%m-%d')
+    payload = _provider_get(
+        provider='google',
+        api_version='v4',
+        path='users/me/dataTypes/sleep/dataPoints:reconcile',
+        params={
+            'dataSourceFamily': _google_data_source_family(),
+            'filter': (
+                f'sleep.interval.civil_end_time >= "{start_str}" '
+                f'and sleep.interval.civil_end_time <= "{end_str}"'
+            ),
+        },
+    )
+    rows_by_date = {}
+    for row in payload.get('dataPoints', []) if isinstance(payload, dict) else []:
+        sleep = row.get('sleep', {}) if isinstance(row, dict) else {}
+        interval = sleep.get('interval', {}) if isinstance(sleep, dict) else {}
+        on_date = _google_date_to_iso(interval.get('civilEndTime', {}).get('date'))
+        if not on_date:
+            end_time = interval.get('endTime') if isinstance(interval, dict) else ''
+            on_date = end_time[:10] if isinstance(end_time, str) and len(end_time) >= 10 else None
+        parsed = _coerce_iso_date(on_date)
+        if parsed is None or parsed < start_date or parsed > end_date:
+            continue
+
+        summary = sleep.get('summary', {}) if isinstance(sleep, dict) else {}
+        minutes_asleep = _coerce_int(summary.get('minutesAsleep'))
+        minutes_awake = _coerce_int(summary.get('minutesAwake'))
+        sleep_minutes = None
+        if minutes_asleep is not None or minutes_awake is not None:
+            sleep_minutes = (minutes_asleep or 0) + (minutes_awake or 0)
+        else:
+            duration = _sleep_duration_minutes(row)
+            sleep_minutes = duration if duration > 0 else None
+
+        _accumulate_sleep_row(rows_by_date, on_date, minutes_asleep, minutes_awake, sleep_minutes)
+    return _finalize_sleep_rows(rows_by_date)
+
+
+def _fitbit_daily_sleep_metrics(start_date, end_date):
+    payload = _provider_get(
+        provider='fitbit',
+        api_version='1.2',
+        path=f'user/-/sleep/date/{start_date}/{end_date}.json',
+    )
+    rows_by_date = {}
+    for row in payload.get('sleep', []) if isinstance(payload, dict) else []:
+        if not isinstance(row, dict):
+            continue
+        on_date = row.get('dateOfSleep')
+        parsed = _coerce_iso_date(on_date)
+        if parsed is None or parsed < start_date or parsed > end_date:
+            continue
+
+        minutes_asleep = _coerce_int(row.get('minutesAsleep'))
+        minutes_awake = _coerce_int(row.get('minutesAwake'))
+        sleep_minutes = _coerce_int(row.get('timeInBed'))
+        if sleep_minutes is None and (minutes_asleep is not None or minutes_awake is not None):
+            sleep_minutes = (minutes_asleep or 0) + (minutes_awake or 0)
+
+        _accumulate_sleep_row(rows_by_date, on_date, minutes_asleep, minutes_awake, sleep_minutes)
+    return _finalize_sleep_rows(rows_by_date)
+
+
+def get_daily_sleep_metrics(start_date, end_date):
+    provider = get_health_provider()
+    if provider == 'google':
+        return _google_daily_sleep_metrics(start_date=start_date, end_date=end_date)
+    if provider == 'fitbit':
+        return _fitbit_daily_sleep_metrics(start_date=start_date, end_date=end_date)
+    raise HealthConfigurationError(
+        f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'
+    )
+
+
 def _parse_iso_datetime(value):
     if not value:
         return None
@@ -791,6 +962,7 @@ def _refresh_google_access_token():
     client_id = os.getenv('GOOGLE_HEALTH_CLIENT_ID')
     client_secret = os.getenv('GOOGLE_HEALTH_CLIENT_SECRET')
     if not refresh_token or not client_id or not client_secret:
+        _set_last_token_refresh_error('google', None, 'missing_refresh_credentials', 'Google refresh credentials are incomplete.')
         return None
 
     response = requests.post(
@@ -804,18 +976,30 @@ def _refresh_google_access_token():
         timeout=30,
     )
     if not response.ok:
+        error_type = 'token_refresh_failed'
+        message = response.text[:200]
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                error_type = str(payload.get('error') or error_type)
+                message = str(payload.get('error_description') or payload.get('error') or message)
+        except ValueError:
+            pass
+        _set_last_token_refresh_error('google', response.status_code, error_type, message)
         return None
 
     payload = response.json()
     _set_token_expiry('google', payload)
     access_token = payload.get('access_token')
     if not access_token:
+        _set_last_token_refresh_error('google', response.status_code, 'missing_access_token', 'Token response did not contain an access token.')
         return None
 
     os.environ['GOOGLE_HEALTH_ACCESS_TOKEN'] = access_token
     os.environ['HEALTH_ACCESS_TOKEN'] = access_token
     if payload.get('refresh_token'):
         os.environ['GOOGLE_HEALTH_REFRESH_TOKEN'] = payload['refresh_token']
+    _clear_last_token_refresh_error('google')
     return access_token
 
 
@@ -823,6 +1007,7 @@ def _refresh_fitbit_access_token():
     refresh_token = os.getenv('FITBIT_REFRESH_TOKEN')
     auth_header = os.getenv('FITBIT_AUTH_HEADER')
     if not refresh_token or not auth_header:
+        _set_last_token_refresh_error('fitbit', None, 'missing_refresh_credentials', 'Fitbit refresh credentials are incomplete.')
         return None
 
     response = requests.post(
@@ -838,18 +1023,30 @@ def _refresh_fitbit_access_token():
         timeout=30,
     )
     if not response.ok:
+        error_type = 'token_refresh_failed'
+        message = response.text[:200]
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                error_type = str(payload.get('errors', [{}])[0].get('errorType', error_type)) if isinstance(payload.get('errors'), list) and payload.get('errors') else error_type
+                message = str(payload.get('errors', [{}])[0].get('message', message)) if isinstance(payload.get('errors'), list) and payload.get('errors') else message
+        except ValueError:
+            pass
+        _set_last_token_refresh_error('fitbit', response.status_code, error_type, message)
         return None
 
     payload = response.json()
     _set_token_expiry('fitbit', payload)
     access_token = payload.get('access_token')
     if not access_token:
+        _set_last_token_refresh_error('fitbit', response.status_code, 'missing_access_token', 'Token response did not contain an access token.')
         return None
 
     os.environ['FITBIT_ACCESS_TOKEN'] = access_token
     os.environ['FITBIT_ACCESS_KEY'] = access_token
     if payload.get('refresh_token'):
         os.environ['FITBIT_REFRESH_TOKEN'] = payload['refresh_token']
+    _clear_last_token_refresh_error('fitbit')
     return access_token
 
 
