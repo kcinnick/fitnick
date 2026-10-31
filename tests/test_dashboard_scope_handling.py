@@ -64,3 +64,42 @@ def test_index_keeps_non_scope_errors(monkeypatch):
     assert len(result['errors']) == 1
     assert 'temporary failure' in result['errors'][0]
 
+
+def test_index_refresh_after_midnight_displays_completed_previous_day(monkeypatch):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from fitnick.base import live_api
+
+    now = datetime(2026, 11, 1, 0, 5, tzinfo=ZoneInfo('America/New_York'))
+    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
+    monkeypatch.setattr(views, '_local_now', lambda: now)
+    monkeypatch.setattr(live_api, '_local_today', lambda: now.date())
+    monkeypatch.setattr(views, 'uses_live_health_api', lambda: True)
+    monkeypatch.setattr(views, 'get_daily_activity_summary', lambda day: {'summary': {'steps': 25}})
+    monkeypatch.setattr(views, 'get_identity_summary', lambda: None)
+    monkeypatch.setattr(views, 'get_latest_sleep_session', lambda: None)
+    monkeypatch.setattr(views, 'get_latest_body_fat_entry', lambda: None)
+    monkeypatch.setattr(views, 'render', lambda request, template_name, context: context)
+
+    def rollup(start_date, end_date):
+        assert end_date == now.date() + live_api.timedelta(days=1)
+        return {'rollupDataPoints': [
+            {
+                'civilStartTime': {'date': {'year': 2026, 'month': 10, 'day': 31}},
+                'steps': {'countSum': 10000},
+            },
+            {
+                'civilStartTime': {'date': {'year': 2026, 'month': 11, 'day': 1}},
+                'steps': {'countSum': 25},
+            },
+        ]}
+
+    monkeypatch.setattr(live_api, '_google_daily_steps_rollup', rollup)
+    result = views.index(DummyRequest())
+    assert result['base_date'] == '2026-11-01'
+    assert result['steps'] == 25
+    assert result['recent_steps'] == [
+        {'date': '2026-10-31', 'steps': 10000},
+        {'date': '2026-11-01', 'steps': 25},
+    ]
