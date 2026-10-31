@@ -40,12 +40,12 @@ The deployed web application is **Django**, not the legacy Flask app.
 
 ## Local work and validation
 
-Run from this repo root, using its existing virtual environment. Put the Django
-project directory on the import path for its short-form module references:
+Run tests from this repo root, using its existing virtual environment and the
+repository-default import layout. Do not put the nested Django project directory
+on `PYTHONPATH` for pytest: tests import `fitnick_django.fitnick_django`, which
+would be shadowed by the inner package.
 
 ```powershell
-$env:PYTHONPATH = (Resolve-Path .\fitnick_django).Path
-$env:DJANGO_SETTINGS_MODULE = 'fitnick_django.settings'
 .\.venv\Scripts\python.exe -m pytest tests -q
 ```
 

@@ -65,6 +65,19 @@ Google rollups normalize to zero, as on the dashboard; zero is therefore not
 proof of complete tracking. Today's values are provisional. Provider failures
 return an error for the entire window, not a successful partial result.
 
+Previous-day totals across midnight
+----------------------------------
+
+Every live dashboard refresh queries the recent seven civil days, including
+yesterday and today. Google Health uses a daily rollup ending at tomorrow's
+midnight; Fitbit requests each day's activity summary. A refresh after midnight
+therefore rereads yesterday's total rather than retaining only today's count.
+Subsequent refreshes also pick up late device/provider corrections.
+
+This is live provider history, not a locally persisted archive or an immutable
+"final" snapshot. A device must sync for its latest steps to reach the provider.
+The daily date-window APIs can also reread past days for downstream consumers.
+
 Goal precedence matches the dashboard: current saved override, provider-returned
 goal, then ``FITNICK_DEFAULT_STEPS_GOAL`` (default 10000). Google does not expose a
 goal. Overrides/defaults are evaluated at request time, **not historical goal
