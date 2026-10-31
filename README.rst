@@ -1,10 +1,9 @@
-in ms when available)
+fitnick
+-------
 
-Rows with no available heart metrics are omitted.
+Personal fitness dashboard and daily Google Health / Fitbit APIs.
+The active web application is Django, not the older Flask experiments.
 
-Fitbit note: this endpoint currently requires ``FITNICK_HEALTH_PROVIDER=fitbit`` and valid Fitbit scopes for heart-rate/HRV access  * ``hrv_ms`` (Fitbit ``dailyRmssd`` or Google daily HRV milliseconds when available)
-Provider note:
-
-* ``FITNICK_HEALTH_PROVIDER=fitbit`` returns resting BPM and, when available, intraday avg/min/max plus HRV.
-* ``FITNICK_HEALTH_PROVIDER=google`` returns daily resting BPM and daily HRV when those Google Health data types/scopes are available (``avg_bpm``/``min_bpm``/``max_bpm`` remain ``null`` in Google mode).
-
+See `README.md <https://github.com/kcinnick/fitnick/blob/master/README.md>`_
+for current setup, authentication, daily API contracts, provider limitations,
+testing, deployment, and the bCounter wake-time integration.
