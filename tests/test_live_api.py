@@ -1,5 +1,7 @@
 import time
 
+import pytest
+
 import fitnick.base.live_api as live_api
 
 
@@ -140,6 +142,86 @@ def test_google_rollup_uses_all_health_data_sources(monkeypatch):
     live_api._google_daily_steps('2026-09-11')
 
     assert captured['family'] == 'users/me/dataSourceFamilies/all-sources'
+
+
+def test_recent_steps_includes_final_previous_day_after_midnight(monkeypatch):
+    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', 'google')
+    today = live_api.datetime(2026, 10, 25).date()
+    monkeypatch.setattr('fitnick.base.live_api._local_today', lambda: today)
+    captured = {}
+
+    def fake_rollup(start_date, end_date):
+        captured['range'] = (start_date, end_date)
+        return {
+            'rollupDataPoints': [
+                {
+                    'civilStartTime': {'date': {'year': 2026, 'month': 10, 'day': 24}},
+                    'steps': {'countSum': 10000},
+                },
+                {
+                    'civilStartTime': {'date': {'year': 2026, 'month': 10, 'day': 25}},
+                    'steps': {'countSum': 0},
+                },
+            ]
+        }
+
+    monkeypatch.setattr('fitnick.base.live_api._google_daily_steps_rollup', fake_rollup)
+
+    result = live_api.get_recent_steps(days=2)
+
+    assert captured['range'] == (
+        live_api.datetime(2026, 10, 24).date(),
+        live_api.datetime(2026, 10, 26).date(),
+    )
+    assert result == [
+        {'date': '2026-10-24', 'steps': 10000},
+        {'date': '2026-10-25', 'steps': 0},
+    ]
+
+
+@pytest.mark.parametrize('provider', ['google', 'fitbit'])
+def test_recent_steps_rereads_late_previous_day_corrections(monkeypatch, provider):
+    monkeypatch.setenv('FITNICK_HEALTH_PROVIDER', provider)
+    today = live_api.datetime(2026, 11, 1).date()
+    monkeypatch.setattr(live_api, '_local_today', lambda: today)
+    previous_total = 9000
+    requested_days = []
+
+    def google_rollup(start_date, end_date):
+        assert start_date == live_api.datetime(2026, 10, 31).date()
+        assert end_date == live_api.datetime(2026, 11, 2).date()
+        return {'rollupDataPoints': [
+            {
+                'civilStartTime': {'date': {'year': 2026, 'month': 10, 'day': 31}},
+                'steps': {'countSum': previous_total},
+            },
+            {
+                'civilStartTime': {'date': {'year': 2026, 'month': 11, 'day': 1}},
+                'steps': {'countSum': 25},
+            },
+        ]}
+
+    def fitbit_get(provider, api_version, path):
+        requested_days.append(path)
+        total = previous_total if '2026-10-31' in path else 25
+        return {'summary': {'steps': total}}
+
+    monkeypatch.setattr(live_api, '_google_daily_steps_rollup', google_rollup)
+    monkeypatch.setattr(live_api, '_provider_get', fitbit_get)
+
+    first = live_api.get_recent_steps(days=2)
+    assert first[0] == {'date': '2026-10-31', 'steps': 9000}
+    previous_total = 10000
+    second = live_api.get_recent_steps(days=2)
+    assert second == [
+        {'date': '2026-10-31', 'steps': 10000},
+        {'date': '2026-11-01', 'steps': 25},
+    ]
+    if provider == 'fitbit':
+        assert requested_days == [
+            'user/-/activities/date/2026-10-31.json',
+            'user/-/activities/date/2026-11-01.json',
+        ] * 2
 
 
 def test_google_body_weight_maps_kilograms_to_provider_rows(monkeypatch):
