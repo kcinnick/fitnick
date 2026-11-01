@@ -21,6 +21,7 @@ from fitnick.base.live_api import (
     get_daily_sleep_metrics,
     get_health_provider,
     get_daily_activity_summary,
+    get_daily_steps_metrics,
     run_smoke_test,
     uses_live_health_api,
 )
@@ -145,6 +146,22 @@ def compute_steps_pacing(steps, goal, now):
     }
 
 
+def _daily_warnings_schema():
+    return {
+        'type': 'array',
+        'description': 'Present only when provider data mapping or date attribution needs attention.',
+        'items': {
+            'type': 'object',
+            'required': ['code', 'message'],
+            'properties': {
+                'code': {'type': 'string'},
+                'message': {'type': 'string'},
+                'on_date': {'type': 'string', 'format': 'date'},
+            },
+        },
+    }
+
+
 def index(request):
     goal = _configured_default_steps_goal()
     today = _local_now().strftime('%Y-%m-%d')
@@ -249,21 +266,6 @@ def openapi_spec(request):
                 'version': __version__,
             },
             'paths': {
-                '/api/steps/daily': {
-                    'get': {
-                        'summary': 'Daily step totals and goal status in an inclusive date window (max 90 days)',
-                        'security': [{'ApiKeyAuth': []}],
-                        'parameters': [
-                            {'in': 'query', 'name': 'from', 'required': True, 'schema': {'type': 'string', 'format': 'date'}},
-                            {'in': 'query', 'name': 'to', 'required': True, 'schema': {'type': 'string', 'format': 'date'}},
-                        ],
-                        'responses': {
-                            '200': {'description': '{"goal": int, "days": [{"on_date", "steps", "goal_met"}]}'},
-                            '400': {'description': 'Invalid query params'},
-                            '401': {'description': 'Unauthorized'},
-                        },
-                    }
-                },
                 '/health': {
                     'get': {
                         'summary': 'Service health',
@@ -321,7 +323,14 @@ def openapi_spec(request):
 def _daily_activity_spec(include_goal):
     properties = {
         'on_date': {'type': 'string', 'format': 'date'},
-        'steps': {'type': 'integer', 'minimum': 0},
+        'steps': (
+            {'type': 'integer', 'minimum': 0}
+            if include_goal else {
+                'type': ['integer', 'null'],
+                'minimum': 0,
+                'description': 'Provider-reported count; null means there was no usable observation.',
+            }
+        ),
     }
     if include_goal:
         properties.update({
@@ -348,14 +357,17 @@ def _daily_activity_spec(include_goal):
                     'content': {'application/json': {'schema': {
                         'type': 'object',
                         'required': ['days'],
-                        'properties': {'days': {
-                            'type': 'array',
-                            'items': {
-                                'type': 'object',
-                                'required': list(properties),
-                                'properties': properties,
+                        'properties': {
+                            'days': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'object',
+                                    'required': list(properties),
+                                    'properties': properties,
+                                },
                             },
-                        }},
+                            **({'warnings': _daily_warnings_schema()} if not include_goal else {}),
+                        },
                     }}},
                 },
                 '400': {'description': 'Invalid window (maximum 90 days)'},
@@ -371,7 +383,7 @@ def _daily_activity_spec(include_goal):
 def _daily_sleep_spec():
     return {
         'get': {
-            'summary': 'Daily sleep metrics',
+            'summary': 'Daily sleep metrics by provider civil end date; minutes_asleep is actual sleep, sleep_minutes is time in bed/session duration',
             'security': [{'ApiKeyAuth': []}],
             'parameters': [
                 {
@@ -395,12 +407,25 @@ def _daily_sleep_spec():
                                     'required': ['on_date', 'sleep_minutes', 'minutes_asleep', 'minutes_awake'],
                                     'properties': {
                                         'on_date': {'type': 'string', 'format': 'date'},
-                                        'sleep_minutes': {'type': ['integer', 'null'], 'minimum': 0},
-                                        'minutes_asleep': {'type': ['integer', 'null'], 'minimum': 0},
-                                        'minutes_awake': {'type': ['integer', 'null'], 'minimum': 0},
+                                        'sleep_minutes': {
+                                            'type': ['integer', 'null'],
+                                            'minimum': 0,
+                                            'description': 'Time in bed/session duration; not actual asleep time.',
+                                        },
+                                        'minutes_asleep': {
+                                            'type': ['integer', 'null'],
+                                            'minimum': 0,
+                                            'description': 'Provider-reported actual time asleep.',
+                                        },
+                                        'minutes_awake': {
+                                            'type': ['integer', 'null'],
+                                            'minimum': 0,
+                                            'description': 'Provider-reported awake time during the sleep session.',
+                                        },
                                     },
                                 },
                             },
+                            'warnings': _daily_warnings_schema(),
                         },
                     }}},
                 },
@@ -516,8 +541,14 @@ def daily_sleep(request):
         return window
     from_date, to_date = window
     try:
-        days = get_daily_sleep_metrics(start_date=from_date, end_date=to_date)
-        return JsonResponse({'days': days})
+        warnings = []
+        days = get_daily_sleep_metrics(
+            start_date=from_date, end_date=to_date, warnings=warnings,
+        )
+        response = {'days': days}
+        if warnings:
+            response['warnings'] = warnings
+        return JsonResponse(response)
     except (HealthAPIError, HealthConfigurationError) as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=getattr(exc, 'status_code', 503))
 
@@ -553,7 +584,29 @@ def _daily_steps_response(request, include_goal=False):
 
 @require_GET
 def daily_steps(request):
-    return _daily_steps_response(request)
+    window = _daily_date_window(request)
+    if isinstance(window, JsonResponse):
+        return window
+    from_date, to_date = window
+    warnings = []
+    try:
+        metrics = get_daily_steps_metrics(
+            start_date=from_date, end_date=to_date, warnings=warnings,
+        )
+        steps_by_date = {row['on_date']: row['steps'] for row in metrics}
+        days = []
+        for offset in range((to_date - from_date).days + 1):
+            on_date = (from_date + timedelta(days=offset)).isoformat()
+            days.append({'on_date': on_date, 'steps': steps_by_date.get(on_date)})
+    except (HealthAPIError, HealthConfigurationError) as exc:
+        return JsonResponse(
+            {'ok': False, 'error': 'Health provider request failed.'},
+            status=getattr(exc, 'status_code', 503),
+        )
+    response = {'days': days}
+    if warnings:
+        response['warnings'] = warnings
+    return JsonResponse(response)
 
 
 @require_GET
