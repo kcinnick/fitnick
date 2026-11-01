@@ -403,12 +403,13 @@ def _extract_daily_rmssd(hrv_payload, target_date_str):
 
 
 def _coerce_iso_date(value):
-    if not value:
+    if not isinstance(value, str) or not value:
         return None
     try:
-        return datetime.strptime(value, '%Y-%m-%d').date()
+        parsed = datetime.strptime(value, '%Y-%m-%d').date()
     except ValueError:
         return None
+    return parsed if parsed.isoformat() == value else None
 
 
 def _google_date_to_iso(date_payload):
@@ -609,7 +610,79 @@ def get_daily_activity_summary(activity_date):
     )
 
 
-def get_daily_steps_metrics(start_date, end_date):
+def _append_daily_warning(warnings, code, message, on_date=None):
+    if warnings is None:
+        return
+    warning = {'code': code, 'message': message}
+    if on_date:
+        warning['on_date'] = on_date
+    warnings.append(warning)
+
+
+def _provider_integer(value):
+    if isinstance(value, bool) or (isinstance(value, float) and not value.is_integer()):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _daily_step_row(on_date, count, start_date, end_date, warnings, index):
+    parsed_date = _coerce_iso_date(on_date)
+    if parsed_date is None:
+        _append_daily_warning(
+            warnings, 'invalid_step_date',
+            f'Step record {index} has an invalid or missing date and was omitted.',
+        )
+        return None
+    if parsed_date < start_date or parsed_date > end_date:
+        _append_daily_warning(
+            warnings, 'step_date_out_of_range',
+            f'Step record {index} is outside the requested date range and was omitted.',
+            on_date,
+        )
+        return None
+    if count is None:
+        _append_daily_warning(
+            warnings, 'missing_step_count',
+            f'Step record {index} has no count; the date is treated as unobserved.',
+            on_date,
+        )
+        return None
+    steps = _provider_integer(count)
+    if steps is None or steps < 0:
+        _append_daily_warning(
+            warnings, 'invalid_step_count',
+            f'Step record {index} has an invalid or negative count; the date is treated as unobserved.',
+            on_date,
+        )
+        return None
+    return {'on_date': on_date, 'steps': steps}
+
+
+def _deduplicate_daily_steps(rows, warnings):
+    by_date = {}
+    for row in rows:
+        on_date = row['on_date']
+        if on_date in by_date:
+            if by_date[on_date] is not None:
+                by_date[on_date] = None
+                _append_daily_warning(
+                    warnings, 'duplicate_step_date',
+                    'Multiple step records were returned for this date; the date is treated as unobserved.',
+                    on_date,
+                )
+            continue
+        by_date[on_date] = row['steps']
+    return [
+        {'on_date': on_date, 'steps': steps}
+        for on_date, steps in sorted(by_date.items())
+        if steps is not None
+    ]
+
+
+def get_daily_steps_metrics(start_date, end_date, warnings=None):
     """Daily step totals for an inclusive date window, ascending by date.
 
     Days without data from the provider are omitted (never reported as 0).
@@ -618,19 +691,30 @@ def get_daily_steps_metrics(start_date, end_date):
     if provider == 'google':
         payload = _google_daily_steps_rollup(start_date=start_date, end_date=end_date + timedelta(days=1))
         rows = []
-        for row in payload.get('rollupDataPoints', []):
-            civil_start = row.get('civilStartTime', {}).get('date', {})
-            count = row.get('steps', {}).get('countSum')
-            if not civil_start or count is None:
+        rollups = payload.get('rollupDataPoints') if isinstance(payload, dict) else None
+        if not isinstance(rollups, list):
+            _append_daily_warning(
+                warnings, 'invalid_step_response',
+                'Google returned an invalid daily steps response; affected dates are unobserved.',
+            )
+            return rows
+        for index, row in enumerate(rollups):
+            if not isinstance(row, dict):
+                _append_daily_warning(
+                    warnings, 'invalid_step_record',
+                    f'Step record {index} is malformed and was omitted.',
+                )
                 continue
-            try:
-                on_date = f"{int(civil_start['year']):04d}-{int(civil_start['month']):02d}-{int(civil_start['day']):02d}"
-                rows.append({'on_date': on_date, 'steps': int(count)})
-            except (KeyError, TypeError, ValueError):
+            civil_start = row.get('civilStartTime')
+            civil_start = civil_start.get('date') if isinstance(civil_start, dict) else None
+            on_date = _google_date_to_iso(civil_start)
+            step_data = row.get('steps')
+            count = step_data.get('countSum') if isinstance(step_data, dict) else None
+            parsed = _daily_step_row(on_date, count, start_date, end_date, warnings, index)
+            if parsed is None:
                 continue
-        rows = [r for r in rows if start_date.isoformat() <= r['on_date'] <= end_date.isoformat()]
-        rows.sort(key=lambda item: item['on_date'])
-        return rows
+            rows.append(parsed)
+        return _deduplicate_daily_steps(rows, warnings)
     if provider == 'fitbit':
         payload = _provider_get(
             provider='fitbit',
@@ -638,17 +722,27 @@ def get_daily_steps_metrics(start_date, end_date):
             path=f'user/-/activities/steps/date/{start_date}/{end_date}.json',
         )
         rows = []
-        for row in payload.get('activities-steps', []) if isinstance(payload, dict) else []:
-            on_date = row.get('dateTime') if isinstance(row, dict) else None
-            value = row.get('value') if isinstance(row, dict) else None
-            if not on_date or value is None:
+        step_records = payload.get('activities-steps') if isinstance(payload, dict) else None
+        if not isinstance(step_records, list):
+            _append_daily_warning(
+                warnings, 'invalid_step_response',
+                'Fitbit returned an invalid daily steps response; affected dates are unobserved.',
+            )
+            return rows
+        for index, row in enumerate(step_records):
+            if not isinstance(row, dict):
+                _append_daily_warning(
+                    warnings, 'invalid_step_record',
+                    f'Step record {index} is malformed and was omitted.',
+                )
                 continue
-            try:
-                rows.append({'on_date': on_date, 'steps': int(value)})
-            except (TypeError, ValueError):
+            parsed = _daily_step_row(
+                row.get('dateTime'), row.get('value'), start_date, end_date, warnings, index,
+            )
+            if parsed is None:
                 continue
-        rows.sort(key=lambda item: item['on_date'])
-        return rows
+            rows.append(parsed)
+        return _deduplicate_daily_steps(rows, warnings)
     raise HealthConfigurationError(
         f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'
     )
@@ -662,21 +756,33 @@ def _accumulate_sleep_row(rows_by_date, on_date, minutes_asleep, minutes_awake, 
             'sleep_minutes': None,
             'minutes_asleep': None,
             'minutes_awake': None,
+            '_sessions': 0,
+            '_sleep_minutes_sessions': 0,
+            '_minutes_asleep_sessions': 0,
+            '_minutes_awake_sessions': 0,
         },
     )
+    entry['_sessions'] += 1
     if minutes_asleep is not None:
         entry['minutes_asleep'] = (entry['minutes_asleep'] or 0) + minutes_asleep
+        entry['_minutes_asleep_sessions'] += 1
     if minutes_awake is not None:
         entry['minutes_awake'] = (entry['minutes_awake'] or 0) + minutes_awake
+        entry['_minutes_awake_sessions'] += 1
     if sleep_minutes is not None:
         entry['sleep_minutes'] = (entry['sleep_minutes'] or 0) + sleep_minutes
+        entry['_sleep_minutes_sessions'] += 1
 
 
 def _finalize_sleep_rows(rows_by_date):
     rows = []
     for row in rows_by_date.values():
-        if row['sleep_minutes'] is None and (row['minutes_asleep'] is not None or row['minutes_awake'] is not None):
-            row['sleep_minutes'] = (row['minutes_asleep'] or 0) + (row['minutes_awake'] or 0)
+        sessions = row.pop('_sessions')
+        for field in ('sleep_minutes', 'minutes_asleep', 'minutes_awake'):
+            if row.pop(f'_{field}_sessions') < sessions:
+                row[field] = None
+        if row['sleep_minutes'] is None and row['minutes_asleep'] is not None and row['minutes_awake'] is not None:
+            row['sleep_minutes'] = row['minutes_asleep'] + row['minutes_awake']
         if row['sleep_minutes'] is None and row['minutes_asleep'] is None and row['minutes_awake'] is None:
             continue
         rows.append(row)
@@ -684,7 +790,45 @@ def _finalize_sleep_rows(rows_by_date):
     return rows
 
 
-def _google_daily_sleep_metrics(start_date, end_date):
+def _nonnegative_sleep_value(value, field, warnings, index, on_date):
+    if value is None:
+        return None
+    parsed = _provider_integer(value)
+    if parsed is None or parsed < 0:
+        _append_daily_warning(
+            warnings, 'invalid_sleep_metric',
+            f'Sleep record {index} has an invalid or negative {field} value; that metric was omitted.',
+            on_date,
+        )
+        return None
+    return parsed
+
+
+def _google_sleep_date(interval, warnings, index):
+    civil_end = interval.get('civilEndTime')
+    civil_date = _google_date_to_iso(civil_end.get('date')) if isinstance(civil_end, dict) else None
+    if civil_date and _coerce_iso_date(civil_date):
+        return civil_date
+
+    end_time = interval.get('endTime')
+    parsed_end = _parse_iso_datetime(end_time)
+    if parsed_end is None or parsed_end.tzinfo is None:
+        _append_daily_warning(
+            warnings, 'unassigned_sleep_date',
+            f'Sleep record {index} has no usable civil end date or timezone-aware end timestamp and was omitted.',
+        )
+        return None
+    timezone = ZoneInfo(os.getenv('FITNICK_TIME_ZONE', DEFAULT_TIME_ZONE))
+    on_date = parsed_end.astimezone(timezone).date().isoformat()
+    _append_daily_warning(
+        warnings, 'sleep_date_timezone_fallback',
+        f'Sleep record {index} was assigned using FITNICK_TIME_ZONE because Google supplied no usable civil end date; provider account timezone may differ.',
+        on_date,
+    )
+    return on_date
+
+
+def _google_daily_sleep_metrics(start_date, end_date, warnings=None):
     start_str = start_date.strftime('%Y-%m-%d')
     end_str = end_date.strftime('%Y-%m-%d')
     payload = _provider_get(
@@ -700,62 +844,148 @@ def _google_daily_sleep_metrics(start_date, end_date):
         },
     )
     rows_by_date = {}
-    for row in payload.get('dataPoints', []) if isinstance(payload, dict) else []:
-        sleep = row.get('sleep', {}) if isinstance(row, dict) else {}
-        interval = sleep.get('interval', {}) if isinstance(sleep, dict) else {}
-        on_date = _google_date_to_iso(interval.get('civilEndTime', {}).get('date'))
-        if not on_date:
-            end_time = interval.get('endTime') if isinstance(interval, dict) else ''
-            on_date = end_time[:10] if isinstance(end_time, str) and len(end_time) >= 10 else None
+    records = payload.get('dataPoints') if isinstance(payload, dict) else None
+    if not isinstance(records, list):
+        _append_daily_warning(
+            warnings, 'invalid_sleep_response',
+            'Google returned an invalid daily sleep response; affected dates are unobserved.',
+        )
+        return []
+    for index, row in enumerate(records):
+        if not isinstance(row, dict) or not isinstance(row.get('sleep'), dict):
+            _append_daily_warning(
+                warnings, 'invalid_sleep_record',
+                f'Sleep record {index} is malformed and was omitted.',
+            )
+            continue
+        sleep = row['sleep']
+        interval = sleep.get('interval')
+        if not isinstance(interval, dict):
+            _append_daily_warning(
+                warnings, 'invalid_sleep_record',
+                f'Sleep record {index} has no valid interval and was omitted.',
+            )
+            continue
+        on_date = _google_sleep_date(interval, warnings, index)
         parsed = _coerce_iso_date(on_date)
-        if parsed is None or parsed < start_date or parsed > end_date:
+        if parsed is None:
+            continue
+        if parsed < start_date or parsed > end_date:
+            _append_daily_warning(
+                warnings, 'sleep_date_out_of_range',
+                f'Sleep record {index} is outside the requested date range and was omitted.',
+                on_date,
+            )
             continue
 
-        summary = sleep.get('summary', {}) if isinstance(sleep, dict) else {}
-        minutes_asleep = _coerce_int(summary.get('minutesAsleep'))
-        minutes_awake = _coerce_int(summary.get('minutesAwake'))
+        summary = sleep.get('summary')
+        if not isinstance(summary, dict):
+            summary = {}
+            _append_daily_warning(
+                warnings, 'missing_sleep_summary',
+                f'Sleep record {index} has no valid summary; duration may be incomplete.',
+                on_date,
+            )
+        minutes_asleep = _nonnegative_sleep_value(
+            summary.get('minutesAsleep'), 'minutesAsleep', warnings, index, on_date,
+        )
+        minutes_awake = _nonnegative_sleep_value(
+            summary.get('minutesAwake'), 'minutesAwake', warnings, index, on_date,
+        )
+        if minutes_asleep is None or minutes_awake is None:
+            _append_daily_warning(
+                warnings, 'partial_sleep_summary',
+                f'Sleep record {index} is missing one or more summary metrics; missing values remain null.',
+                on_date,
+            )
         sleep_minutes = None
-        if minutes_asleep is not None or minutes_awake is not None:
-            sleep_minutes = (minutes_asleep or 0) + (minutes_awake or 0)
+        if minutes_asleep is not None and minutes_awake is not None:
+            sleep_minutes = minutes_asleep + minutes_awake
         else:
-            duration = _sleep_duration_minutes(row)
+            duration = _sleep_duration_minutes(row, require_complete_summary=True)
             sleep_minutes = duration if duration > 0 else None
+            if duration <= 0 and minutes_asleep is None and minutes_awake is None:
+                _append_daily_warning(
+                    warnings, 'missing_sleep_duration',
+                    f'Sleep record {index} has neither usable summary metrics nor a usable duration.',
+                    on_date,
+                )
 
         _accumulate_sleep_row(rows_by_date, on_date, minutes_asleep, minutes_awake, sleep_minutes)
     return _finalize_sleep_rows(rows_by_date)
 
 
-def _fitbit_daily_sleep_metrics(start_date, end_date):
+def _fitbit_daily_sleep_metrics(start_date, end_date, warnings=None):
     payload = _provider_get(
         provider='fitbit',
         api_version='1.2',
         path=f'user/-/sleep/date/{start_date}/{end_date}.json',
     )
     rows_by_date = {}
-    for row in payload.get('sleep', []) if isinstance(payload, dict) else []:
+    records = payload.get('sleep') if isinstance(payload, dict) else None
+    if not isinstance(records, list):
+        _append_daily_warning(
+            warnings, 'invalid_sleep_response',
+            'Fitbit returned an invalid daily sleep response; affected dates are unobserved.',
+        )
+        return []
+    for index, row in enumerate(records):
         if not isinstance(row, dict):
+            _append_daily_warning(
+                warnings, 'invalid_sleep_record',
+                f'Sleep record {index} is malformed and was omitted.',
+            )
             continue
         on_date = row.get('dateOfSleep')
         parsed = _coerce_iso_date(on_date)
-        if parsed is None or parsed < start_date or parsed > end_date:
+        if parsed is None:
+            _append_daily_warning(
+                warnings, 'unassigned_sleep_date',
+                f'Sleep record {index} has an invalid or missing Fitbit dateOfSleep and was omitted.',
+            )
+            continue
+        if parsed < start_date or parsed > end_date:
+            _append_daily_warning(
+                warnings, 'sleep_date_out_of_range',
+                f'Sleep record {index} is outside the requested date range and was omitted.',
+                on_date,
+            )
             continue
 
-        minutes_asleep = _coerce_int(row.get('minutesAsleep'))
-        minutes_awake = _coerce_int(row.get('minutesAwake'))
-        sleep_minutes = _coerce_int(row.get('timeInBed'))
-        if sleep_minutes is None and (minutes_asleep is not None or minutes_awake is not None):
-            sleep_minutes = (minutes_asleep or 0) + (minutes_awake or 0)
+        minutes_asleep = _nonnegative_sleep_value(
+            row.get('minutesAsleep'), 'minutesAsleep', warnings, index, on_date,
+        )
+        minutes_awake = _nonnegative_sleep_value(
+            row.get('minutesAwake'), 'minutesAwake', warnings, index, on_date,
+        )
+        sleep_minutes = _nonnegative_sleep_value(
+            row.get('timeInBed'), 'timeInBed', warnings, index, on_date,
+        )
+        if sleep_minutes is None and minutes_asleep is not None and minutes_awake is not None:
+            sleep_minutes = minutes_asleep + minutes_awake
+        if minutes_asleep is None or minutes_awake is None:
+            _append_daily_warning(
+                warnings, 'partial_sleep_summary',
+                f'Sleep record {index} is missing one or more summary metrics; missing values remain null.',
+                on_date,
+            )
+        if sleep_minutes is None and minutes_asleep is None and minutes_awake is None:
+            _append_daily_warning(
+                warnings, 'missing_sleep_metrics',
+                f'Sleep record {index} has no usable sleep metrics and was omitted.',
+                on_date,
+            )
 
         _accumulate_sleep_row(rows_by_date, on_date, minutes_asleep, minutes_awake, sleep_minutes)
     return _finalize_sleep_rows(rows_by_date)
 
 
-def get_daily_sleep_metrics(start_date, end_date):
+def get_daily_sleep_metrics(start_date, end_date, warnings=None):
     provider = get_health_provider()
     if provider == 'google':
-        return _google_daily_sleep_metrics(start_date=start_date, end_date=end_date)
+        return _google_daily_sleep_metrics(start_date=start_date, end_date=end_date, warnings=warnings)
     if provider == 'fitbit':
-        return _fitbit_daily_sleep_metrics(start_date=start_date, end_date=end_date)
+        return _fitbit_daily_sleep_metrics(start_date=start_date, end_date=end_date, warnings=warnings)
     raise HealthConfigurationError(
         f'Unsupported FITNICK_HEALTH_PROVIDER value "{provider}". Expected "google" or "fitbit".'
     )
@@ -771,14 +1001,21 @@ def _parse_iso_datetime(value):
         return None
 
 
-def _sleep_duration_minutes(row):
+def _sleep_duration_minutes(row, require_complete_summary=False):
     sleep = row.get('sleep', {})
     summary = sleep.get('summary', {})
-    try:
-        summary_minutes = int(summary.get('minutesAsleep') or 0) + int(summary.get('minutesAwake') or 0)
-    except (TypeError, ValueError):
-        summary_minutes = 0
-    if summary_minutes > 0:
+    if require_complete_summary:
+        asleep = _provider_integer(summary.get('minutesAsleep'))
+        awake = _provider_integer(summary.get('minutesAwake'))
+        summary_minutes = asleep + awake if asleep is not None and awake is not None else 0
+        has_complete_summary = asleep is not None and awake is not None and asleep >= 0 and awake >= 0
+    else:
+        try:
+            summary_minutes = int(summary.get('minutesAsleep') or 0) + int(summary.get('minutesAwake') or 0)
+        except (TypeError, ValueError):
+            summary_minutes = 0
+        has_complete_summary = True
+    if summary_minutes > 0 and has_complete_summary:
         return summary_minutes
 
     interval = sleep.get('interval', {})

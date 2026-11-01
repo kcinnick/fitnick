@@ -86,7 +86,7 @@ return a non-success response rather than fabricated success.
 
 | Endpoint | Fields in each day |
 |---|---|
-| `/api/steps/daily` | `on_date`, `steps` |
+| `/api/steps/daily` | `on_date`, `steps` (integer or `null` when unobserved) |
 | `/api/goals/progress` | `on_date`, `steps`, `steps_goal`, `remaining_steps`, `percent`, `goal_reached` |
 | `/api/sleep/daily` | `on_date`, `sleep_minutes`, `minutes_asleep`, `minutes_awake` |
 | `/api/heart-rate/daily` | `on_date`, `resting_bpm`, `avg_bpm`, `min_bpm`, `max_bpm`, `hrv_ms` |
@@ -94,9 +94,35 @@ return a non-success response rather than fabricated success.
 Google mode supplies daily resting BPM/HRV when available; intraday
 `avg_bpm`/`min_bpm`/`max_bpm` remain null. Fitbit can supply those intraday
 metrics when permissions allow. Heart/sleep rows without available metrics may
-be omitted; individual fields may be null. The steps route currently defaults
-an absent summary step count to zero, so consumers must not treat every zero
-as confirmed inactivity.
+be omitted; individual fields may be null. `/api/steps/daily` returns every
+requested date: an explicit provider count of zero remains `0`, while a date
+without a provider observation is `null`. The dashboard-oriented
+`/api/goals/progress` retains its existing default of zero when the summary is
+missing. Daily responses do not repeat provider identity; `/health` reports the
+selected provider, and each `on_date` is interpreted according to that
+provider's civil-day contract.
+
+Sleep rows use the provider's end-date attribution: Google civil end dates and
+Fitbit `dateOfSleep`; sessions and naps attributed to the same date are
+aggregated without shifting overnight sessions to the prior day. Google
+`minutes_asleep` is actual asleep time. `sleep_minutes` is time in bed/session
+duration, sourced from Fitbit `timeInBed`, Google summary asleep-plus-awake
+minutes, or a valid interval duration when summaries are unavailable. A
+partially available summary does not imply the missing metric is zero.
+For multiple sessions on a date, an aggregate metric is null if any included
+session lacks that metric; the response includes a warning for partial summaries.
+
+For Google rows without a usable civil end date, a timezone-aware end timestamp
+is converted to `FITNICK_TIME_ZONE` (default `America/New_York`) and a warning
+is returned. Because provider-account timezone may differ, this fallback is
+explicitly uncertain; a timestamp without timezone information is omitted with
+a warning. Provider civil dates are not converted to the configured timezone.
+Either daily endpoint may add a top-level `warnings` array with `code`,
+`message`, and optional `on_date` when records are malformed, incomplete, out
+of range, duplicated (steps), or date attribution needs attention. No warning
+array means no mapping warning was detected; it does not guarantee provider
+data completeness or freshness. Providers may revise historical totals after
+late device syncs, and the current civil day may be incomplete.
 
 ```powershell
 $env:FITNICK_API_KEY = "<your-configured-key>"
@@ -104,8 +130,8 @@ curl.exe --fail -H "X-API-Key: $env:FITNICK_API_KEY" "http://127.0.0.1:8002/api/
 ```
 
 `/health` and `/healthz` report service/provider/mode and the deployed commit when
-available; they do not verify provider connectivity. `/openapi.json` is available
-but is not a complete description of every current response shape.
+available; they do not verify provider connectivity. `/openapi.json` describes
+the daily steps and sleep rows and their optional warnings.
 `/health/smoke` and `/fitbit/smoke` can contact the configured provider and refresh
 tokens; do not use them as offline tests.
 
